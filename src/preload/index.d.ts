@@ -24,6 +24,7 @@ declare global {
       }
       search: {
         youshu: (keyword: string) => Promise<ApiResponse<SearchResult[]>>
+        downloadCover: (url: string, title?: string) => Promise<ApiResponse<string>>
       }
     }
   }

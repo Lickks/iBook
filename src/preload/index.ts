@@ -7,8 +7,7 @@ import type { ApiResponse } from '../renderer/src/types/api'
 const api = {
   // 书籍操作
   book: {
-    create: (input: BookInput): Promise<ApiResponse> =>
-      ipcRenderer.invoke('book:create', input),
+    create: (input: BookInput): Promise<ApiResponse> => ipcRenderer.invoke('book:create', input),
     update: (id: number, input: Partial<BookInput>): Promise<ApiResponse> =>
       ipcRenderer.invoke('book:update', id, input),
     delete: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('book:delete', id),
@@ -34,7 +33,9 @@ const api = {
   // 搜索操作
   search: {
     youshu: (keyword: string): Promise<ApiResponse<SearchResult[]>> =>
-      ipcRenderer.invoke('search:youshu', keyword)
+      ipcRenderer.invoke('search:youshu', keyword),
+    downloadCover: (url: string, title?: string): Promise<ApiResponse<string>> =>
+      ipcRenderer.invoke('search:downloadCover', { url, title })
   }
 }
 

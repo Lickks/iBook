@@ -22,6 +22,7 @@ import type {
 class DatabaseService {
   private db: Database.Database | null = null
   private dbPath: string
+  private isInitialized = false
 
   constructor() {
     // 数据库文件存储在用户数据目录
@@ -34,9 +35,14 @@ class DatabaseService {
    * 创建数据库连接并执行 schema.sql 初始化脚本
    */
   initialize(): void {
+    if (this.isInitialized && this.db) {
+      return
+    }
+
     try {
       // 打开数据库连接
       this.db = new Database(this.dbPath)
+      this.isInitialized = true
       
       // 启用外键约束
       this.db.pragma('foreign_keys = ON')
@@ -48,38 +54,30 @@ class DatabaseService {
       const schema = readFileSync(schemaPath, 'utf-8')
       
       // 执行 SQL 脚本
-      // better-sqlite3 的 exec 方法可以执行多语句，但为了更好的错误处理，我们逐条执行
-      const statements = schema
-        .split(';')
-        .map((s) => s.trim())
-        .filter((s) => {
-          // 过滤空语句和注释
-          return s.length > 0 && !s.startsWith('--') && !s.match(/^\s*$/)
-        })
-
-      const transaction = this.db.transaction(() => {
-        for (const statement of statements) {
-          try {
-            if (statement.length > 0) {
-              this.db!.exec(statement + ';')
-            }
-          } catch (error: any) {
-            // 忽略某些预期的错误（如视图/表已存在、索引已存在等）
-            const errorMsg = String(error?.message || error)
-            if (
-              !errorMsg.includes('already exists') &&
-              !errorMsg.includes('duplicate column name')
-            ) {
-              console.error('SQL执行错误:', statement.substring(0, 100), errorMsg)
-            }
-          }
+      // SQLite 的 DDL 语句（CREATE TABLE 等）是自动提交的，不需要事务
+      // 使用 exec 方法执行整个脚本，它会自动处理多语句
+      try {
+        const sanitizedSchema = this.stripUnsupportedComments(schema)
+        this.db.exec(sanitizedSchema)
+      } catch (error: any) {
+        // 忽略某些预期的错误（如视图/表已存在、索引已存在等）
+        const errorMsg = String(error?.message || error)
+        if (
+          !errorMsg.includes('already exists') &&
+          !errorMsg.includes('duplicate column name') &&
+          !errorMsg.includes('no such table') &&
+          !errorMsg.includes('no such index')
+        ) {
+          // 如果是非预期的错误，记录并重新抛出
+          console.error('数据库初始化 SQL 执行失败:', errorMsg)
+          throw error
         }
-      })
-
-      transaction()
+      }
       
       console.log('数据库初始化成功:', this.dbPath)
     } catch (error) {
+      this.isInitialized = false
+      this.db = null
       console.error('数据库初始化失败:', error)
       throw error
     }
@@ -89,6 +87,10 @@ class DatabaseService {
    * 获取数据库实例
    */
   getDatabase(): Database.Database {
+    if (!this.db) {
+      this.initialize()
+    }
+
     if (!this.db) {
       throw new Error('数据库未初始化，请先调用 initialize()')
     }
@@ -102,7 +104,15 @@ class DatabaseService {
     if (this.db) {
       this.db.close()
       this.db = null
+      this.isInitialized = false
     }
+  }
+
+  /**
+   * 移除 SQLite 不支持的 COMMENT 语法，防止执行 schema 时出现语法错误
+   */
+  private stripUnsupportedComments(sql: string): string {
+    return sql.replace(/\s+COMMENT\s+(['"])(?:\\.|(?!\1).)*\1/gi, '')
   }
 
   // ============================================

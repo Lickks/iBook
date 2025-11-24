@@ -3,7 +3,6 @@
  */
 
 import type { SearchResult } from '../types'
-import type { ApiResponse } from '../types/api'
 
 /**
  * 从 youshu.me 搜索书籍
@@ -16,3 +15,13 @@ export async function searchYoushu(keyword: string): Promise<SearchResult[]> {
   throw new Error(response.error || '搜索书籍失败')
 }
 
+/**
+ * 下载远程封面并进行压缩
+ */
+export async function downloadCover(url: string, title?: string): Promise<string> {
+  const response = await window.api.search.downloadCover(url, title)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '封面下载失败')
+}

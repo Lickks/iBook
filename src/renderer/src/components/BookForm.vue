@@ -26,7 +26,8 @@ const form = reactive({
   category: '',
   description: '',
   wordCount: '',
-  readingStatus: 'unread'
+  readingStatus: 'unread',
+  sourceUrl: ''
 })
 
 const errors = reactive<{ title?: string; wordCount?: string }>({})
@@ -43,6 +44,7 @@ watch(
     form.description = value.description || ''
     form.wordCount = value.wordCountDisplay ? String(value.wordCountDisplay) : ''
     form.readingStatus = (value.readingStatus as typeof form.readingStatus) || 'unread'
+    form.sourceUrl = value.sourceUrl || ''
   },
   { immediate: true }
 )
@@ -76,7 +78,8 @@ function handleSubmit(): void {
     description: form.description.trim() || undefined,
     wordCountDisplay:
       parsedWordCount !== undefined && !Number.isNaN(parsedWordCount) ? parsedWordCount : undefined,
-    readingStatus: form.readingStatus
+    readingStatus: form.readingStatus,
+    sourceUrl: form.sourceUrl || undefined
   }
 
   emit('submit', payload)
@@ -249,4 +252,3 @@ function handleCoverUpload(event: Event): void {
   }
 }
 </style>
-

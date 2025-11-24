@@ -33,13 +33,15 @@
     "element-plus": "^2.11.8",
     "epub": "^1.3.0",
     "iconv-lite": "^0.7.0",
+    "jimp": "^1.6.0",
     "jschardet": "^3.1.4",
     "lodash-es": "^4.17.21",
     "mammoth": "^1.11.0",
     "pdf-parse": "^2.4.5",
     "pinia": "^3.0.4",
     "uuid": "^13.0.0",
-    "vue-router": "^4.6.3"
+    "vue-router": "^4.6.3",
+    "adm-zip": "^0.5.16"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "3.0.0",
@@ -70,6 +72,9 @@
     "onlyBuiltDependencies": [
       "electron",
       "esbuild"
+    ],
+    "ignoredBuiltDependencies": [
+      "better-sqlite3"
     ]
   }
 }
