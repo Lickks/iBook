@@ -310,6 +310,11 @@ onUnmounted(() => {
   text-transform: uppercase;
 }
 
+/* 网格视图下的封面居中 */
+.book-card.grid .cover {
+  margin: 0 auto;
+}
+
 .cover img {
   width: 100%;
   height: 100%;
@@ -321,6 +326,24 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* 网格视图下的居中对齐 */
+.book-card.grid .info {
+  text-align: center;
+  align-items: center;
+}
+
+.book-card.grid .meta {
+  justify-content: center;
+}
+
+.book-card.grid .stats {
+  justify-content: center;
+}
+
+.book-card.grid .status {
+  align-self: center;
 }
 
 .title {
