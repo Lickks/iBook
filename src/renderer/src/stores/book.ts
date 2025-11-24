@@ -153,6 +153,7 @@ export const useBookStore = defineStore('book', () => {
    * 搜索书籍
    */
   async function searchBooks(keyword: string): Promise<void> {
+    searchKeyword.value = keyword
     loading.value = true
     try {
       if (!keyword.trim()) {
@@ -160,7 +161,6 @@ export const useBookStore = defineStore('book', () => {
         return
       }
       books.value = await bookAPI.searchBooks(keyword)
-      searchKeyword.value = keyword
     } catch (error: any) {
       console.error('搜索书籍失败:', error)
       throw error
