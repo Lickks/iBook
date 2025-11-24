@@ -42,6 +42,17 @@ function formatWordCount(count?: number | null): string {
   return `${count.toLocaleString()} 字`
 }
 
+/**
+ * 将字数四舍五入到最接近的step倍数
+ * @param wordCount 原始字数
+ * @param step 步长（默认1000）
+ * @returns 四舍五入后的字数
+ */
+function roundWordCount(wordCount: number | undefined, step: number = 1000): number | undefined {
+  if (!wordCount) return undefined
+  return Math.round(wordCount / step) * step
+}
+
 const book = computed(() =>
   bookStore.books.find((item) => item.id === bookId.value) || bookStore.currentBook
 )
@@ -142,21 +153,24 @@ async function handleUploadDocument(): Promise<void> {
       // 如果文档字数大于0，询问是否使用文档字数
       const document = uploadResult.data
       if (document && document.wordCount > 0) {
-        await ElMessageBox.confirm(
-          `检测到文档字数为 ${formatWordCount(document.wordCount)}，是否使用此字数作为书籍字数？`,
-          '提示',
-          {
-            confirmButtonText: '是',
-            cancelButtonText: '否',
-            type: 'info'
-          }
-        )
-          .then(async () => {
-            await handleSetWordCountSource('document', document.wordCount)
-          })
-          .catch(() => {
-            // 用户选择否，不做任何操作
-          })
+        const roundedWordCount = roundWordCount(document.wordCount)
+        if (roundedWordCount) {
+          await ElMessageBox.confirm(
+            `检测到文档字数为 ${formatWordCount(roundedWordCount)}，是否使用此字数作为书籍字数？`,
+            '提示',
+            {
+              confirmButtonText: '是',
+              cancelButtonText: '否',
+              type: 'info'
+            }
+          )
+            .then(async () => {
+              await handleSetWordCountSource('document', roundedWordCount)
+            })
+            .catch(() => {
+              // 用户选择否，不做任何操作
+            })
+        }
       }
     } else {
       ElMessage.error(uploadResult.error || '文档上传失败')

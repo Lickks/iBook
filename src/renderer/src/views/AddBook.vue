@@ -19,6 +19,17 @@ function switchTab(tab: 'manual' | 'online'): void {
   activeTab.value = tab
 }
 
+/**
+ * 将字数四舍五入到最接近的step倍数
+ * @param wordCount 原始字数
+ * @param step 步长（默认1000）
+ * @returns 四舍五入后的字数
+ */
+function roundWordCount(wordCount: number | undefined, step: number = 1000): number | undefined {
+  if (!wordCount) return undefined
+  return Math.round(wordCount / step) * step
+}
+
 async function handleSubmit(payload: BookInput): Promise<void> {
   try {
     submitting.value = true
@@ -69,8 +80,8 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
       platform,
       category,
       description: result.description,
-      wordCountDisplay: result.wordCount || undefined,
-      wordCountSearch: result.wordCount || undefined,
+      wordCountDisplay: roundWordCount(result.wordCount),
+      wordCountSearch: roundWordCount(result.wordCount),
       sourceUrl: result.sourceUrl,
       wordCountSource: 'search'
     }
