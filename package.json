@@ -1,5 +1,5 @@
 {
-  "name": "temp-book-store",
+  "name": "ibook",
   "version": "1.0.0",
   "description": "An Electron application with Vue and TypeScript",
   "main": "./out/main/index.js",
@@ -37,7 +37,9 @@
     "lodash-es": "^4.17.21",
     "mammoth": "^1.11.0",
     "pdf-parse": "^2.4.5",
-    "uuid": "^13.0.0"
+    "pinia": "^3.0.4",
+    "uuid": "^13.0.0",
+    "vue-router": "^4.6.3"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "3.0.0",
