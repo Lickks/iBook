@@ -3,52 +3,74 @@
  */
 
 import type { Book, BookInput } from '../types'
+import type { ApiResponse } from '../types/api'
 
 /**
  * 获取所有书籍
  */
 export async function getAllBooks(): Promise<Book[]> {
-  // TODO: 调用 Electron IPC
-  return []
+  const response = await window.api.book.getAll()
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '获取书籍列表失败')
 }
 
 /**
  * 根据ID获取书籍
  */
 export async function getBookById(id: number): Promise<Book | null> {
-  // TODO: 调用 Electron IPC
-  return null
+  const response = await window.api.book.getById(id)
+  if (response.success && response.data) {
+    return response.data
+  }
+  if (response.error === '书籍不存在') {
+    return null
+  }
+  throw new Error(response.error || '获取书籍失败')
 }
 
 /**
  * 创建书籍
  */
 export async function createBook(book: BookInput): Promise<Book> {
-  // TODO: 调用 Electron IPC
-  throw new Error('Not implemented')
+  const response = await window.api.book.create(book)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '创建书籍失败')
 }
 
 /**
  * 更新书籍
  */
 export async function updateBook(id: number, book: Partial<BookInput>): Promise<Book> {
-  // TODO: 调用 Electron IPC
-  throw new Error('Not implemented')
+  const response = await window.api.book.update(id, book)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '更新书籍失败')
 }
 
 /**
  * 删除书籍
  */
 export async function deleteBook(id: number): Promise<boolean> {
-  // TODO: 调用 Electron IPC
-  return false
+  const response = await window.api.book.delete(id)
+  if (response.success) {
+    return true
+  }
+  throw new Error(response.error || '删除书籍失败')
 }
 
 /**
  * 搜索书籍
  */
 export async function searchBooks(keyword: string): Promise<Book[]> {
-  // TODO: 调用 Electron IPC
-  return []
+  const response = await window.api.book.search(keyword)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '搜索书籍失败')
 }
 
