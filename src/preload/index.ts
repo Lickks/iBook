@@ -1,8 +1,42 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type { BookInput, DocumentInput, SearchResult } from '../renderer/src/types/book'
+import type { ApiResponse } from '../renderer/src/types/api'
 
 // Custom APIs for renderer
-const api = {}
+const api = {
+  // 书籍操作
+  book: {
+    create: (input: BookInput): Promise<ApiResponse> =>
+      ipcRenderer.invoke('book:create', input),
+    update: (id: number, input: Partial<BookInput>): Promise<ApiResponse> =>
+      ipcRenderer.invoke('book:update', id, input),
+    delete: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('book:delete', id),
+    getById: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('book:getById', id),
+    getAll: (): Promise<ApiResponse> => ipcRenderer.invoke('book:getAll'),
+    search: (keyword: string): Promise<ApiResponse> => ipcRenderer.invoke('book:search', keyword)
+  },
+
+  // 文档操作
+  document: {
+    upload: (input: DocumentInput): Promise<ApiResponse> =>
+      ipcRenderer.invoke('document:upload', input),
+    delete: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('document:delete', id),
+    open: (filePath: string): Promise<ApiResponse> => ipcRenderer.invoke('document:open', filePath),
+    countWords: (filePath: string): Promise<ApiResponse> =>
+      ipcRenderer.invoke('document:countWords', filePath),
+    getByBookId: (bookId: number): Promise<ApiResponse> =>
+      ipcRenderer.invoke('document:getByBookId', bookId),
+    update: (id: number, input: Partial<DocumentInput>): Promise<ApiResponse> =>
+      ipcRenderer.invoke('document:update', id, input)
+  },
+
+  // 搜索操作
+  search: {
+    youshu: (keyword: string): Promise<ApiResponse<SearchResult[]>> =>
+      ipcRenderer.invoke('search:youshu', keyword)
+  }
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
