@@ -1,0 +1,749 @@
+import Database from 'better-sqlite3'
+import { app } from 'electron'
+import { join } from 'path'
+import { readFileSync } from 'fs'
+import type {
+  Book,
+  BookInput,
+  Document,
+  DocumentInput,
+  Note,
+  NoteInput,
+  Tag,
+  TagInput,
+  ReadingProgress,
+  ReadingProgressInput
+} from '../../renderer/src/types/book'
+
+/**
+ * 数据库服务类
+ * 负责数据库初始化、连接管理和所有 CRUD 操作
+ */
+class DatabaseService {
+  private db: Database.Database | null = null
+  private dbPath: string
+
+  constructor() {
+    // 数据库文件存储在用户数据目录
+    const userDataPath = app.getPath('userData')
+    this.dbPath = join(userDataPath, 'ibook.db')
+  }
+
+  /**
+   * 初始化数据库
+   * 创建数据库连接并执行 schema.sql 初始化脚本
+   */
+  initialize(): void {
+    try {
+      // 打开数据库连接
+      this.db = new Database(this.dbPath)
+      
+      // 启用外键约束
+      this.db.pragma('foreign_keys = ON')
+
+      // 读取并执行 schema.sql
+      // 使用 app.getAppPath() 获取应用路径，兼容开发和生产环境
+      const appPath = app.getAppPath()
+      const schemaPath = join(appPath, 'database', 'schema.sql')
+      const schema = readFileSync(schemaPath, 'utf-8')
+      
+      // 执行 SQL 脚本
+      // better-sqlite3 的 exec 方法可以执行多语句，但为了更好的错误处理，我们逐条执行
+      const statements = schema
+        .split(';')
+        .map((s) => s.trim())
+        .filter((s) => {
+          // 过滤空语句和注释
+          return s.length > 0 && !s.startsWith('--') && !s.match(/^\s*$/)
+        })
+
+      const transaction = this.db.transaction(() => {
+        for (const statement of statements) {
+          try {
+            if (statement.length > 0) {
+              this.db!.exec(statement + ';')
+            }
+          } catch (error: any) {
+            // 忽略某些预期的错误（如视图/表已存在、索引已存在等）
+            const errorMsg = String(error?.message || error)
+            if (
+              !errorMsg.includes('already exists') &&
+              !errorMsg.includes('duplicate column name')
+            ) {
+              console.error('SQL执行错误:', statement.substring(0, 100), errorMsg)
+            }
+          }
+        }
+      })
+
+      transaction()
+      
+      console.log('数据库初始化成功:', this.dbPath)
+    } catch (error) {
+      console.error('数据库初始化失败:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 获取数据库实例
+   */
+  getDatabase(): Database.Database {
+    if (!this.db) {
+      throw new Error('数据库未初始化，请先调用 initialize()')
+    }
+    return this.db
+  }
+
+  /**
+   * 关闭数据库连接
+   */
+  close(): void {
+    if (this.db) {
+      this.db.close()
+      this.db = null
+    }
+  }
+
+  // ============================================
+  // 书籍 CRUD 操作
+  // ============================================
+
+  /**
+   * 创建书籍
+   */
+  createBook(input: BookInput): Book {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      INSERT INTO books (
+        title, author, cover_url, platform, category, description,
+        word_count_source, word_count_search, word_count_document, 
+        word_count_manual, word_count_display, isbn, source_url,
+        reading_status, personal_rating
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+
+    const result = stmt.run(
+      input.title,
+      input.author || null,
+      input.coverUrl || null,
+      input.platform || null,
+      input.category || null,
+      input.description || null,
+      input.wordCountSource || 'search',
+      null,
+      null,
+      null,
+      input.wordCountDisplay || null,
+      input.isbn || null,
+      input.sourceUrl || null,
+      input.readingStatus || 'unread',
+      input.personalRating || null
+    )
+
+    return this.getBookById(result.lastInsertRowid as number)!
+  }
+
+  /**
+   * 根据 ID 获取书籍
+   */
+  getBookById(id: number): Book | null {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT 
+        id, title, author, cover_url as coverUrl, platform, category, description,
+        word_count_source as wordCountSource,
+        word_count_search as wordCountSearch,
+        word_count_document as wordCountDocument,
+        word_count_manual as wordCountManual,
+        word_count_display as wordCountDisplay,
+        isbn, source_url as sourceUrl,
+        reading_status as readingStatus,
+        personal_rating as personalRating,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM books
+      WHERE id = ?
+    `)
+
+    const row = stmt.get(id) as any
+    if (!row) return null
+
+    return {
+      ...row,
+      readingStatus: row.readingStatus || 'unread',
+      wordCountSource: row.wordCountSource || 'search'
+    }
+  }
+
+  /**
+   * 获取所有书籍
+   */
+  getAllBooks(): Book[] {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT 
+        id, title, author, cover_url as coverUrl, platform, category, description,
+        word_count_source as wordCountSource,
+        word_count_search as wordCountSearch,
+        word_count_document as wordCountDocument,
+        word_count_manual as wordCountManual,
+        word_count_display as wordCountDisplay,
+        isbn, source_url as sourceUrl,
+        reading_status as readingStatus,
+        personal_rating as personalRating,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM books
+      ORDER BY created_at DESC
+    `)
+
+    const rows = stmt.all() as any[]
+    return rows.map((row) => ({
+      ...row,
+      readingStatus: row.readingStatus || 'unread',
+      wordCountSource: row.wordCountSource || 'search'
+    }))
+  }
+
+  /**
+   * 更新书籍
+   */
+  updateBook(id: number, input: Partial<BookInput>): Book | null {
+    const db = this.getDatabase()
+    
+    // 构建动态更新语句
+    const fields: string[] = []
+    const values: any[] = []
+
+    if (input.title !== undefined) {
+      fields.push('title = ?')
+      values.push(input.title)
+    }
+    if (input.author !== undefined) {
+      fields.push('author = ?')
+      values.push(input.author || null)
+    }
+    if (input.coverUrl !== undefined) {
+      fields.push('cover_url = ?')
+      values.push(input.coverUrl || null)
+    }
+    if (input.platform !== undefined) {
+      fields.push('platform = ?')
+      values.push(input.platform || null)
+    }
+    if (input.category !== undefined) {
+      fields.push('category = ?')
+      values.push(input.category || null)
+    }
+    if (input.description !== undefined) {
+      fields.push('description = ?')
+      values.push(input.description || null)
+    }
+    if (input.wordCountSource !== undefined) {
+      fields.push('word_count_source = ?')
+      values.push(input.wordCountSource)
+    }
+    if (input.wordCountDisplay !== undefined) {
+      fields.push('word_count_display = ?')
+      values.push(input.wordCountDisplay || null)
+    }
+    if (input.isbn !== undefined) {
+      fields.push('isbn = ?')
+      values.push(input.isbn || null)
+    }
+    if (input.sourceUrl !== undefined) {
+      fields.push('source_url = ?')
+      values.push(input.sourceUrl || null)
+    }
+    if (input.readingStatus !== undefined) {
+      fields.push('reading_status = ?')
+      values.push(input.readingStatus)
+    }
+    if (input.personalRating !== undefined) {
+      fields.push('personal_rating = ?')
+      values.push(input.personalRating || null)
+    }
+
+    if (fields.length === 0) {
+      return this.getBookById(id)
+    }
+
+    values.push(id)
+    const stmt = db.prepare(`UPDATE books SET ${fields.join(', ')} WHERE id = ?`)
+    stmt.run(...values)
+
+    return this.getBookById(id)
+  }
+
+  /**
+   * 删除书籍
+   */
+  deleteBook(id: number): boolean {
+    const db = this.getDatabase()
+    const stmt = db.prepare('DELETE FROM books WHERE id = ?')
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  /**
+   * 搜索书籍
+   */
+  searchBooks(keyword: string): Book[] {
+    const db = this.getDatabase()
+    const searchTerm = `%${keyword}%`
+    const stmt = db.prepare(`
+      SELECT 
+        id, title, author, cover_url as coverUrl, platform, category, description,
+        word_count_source as wordCountSource,
+        word_count_search as wordCountSearch,
+        word_count_document as wordCountDocument,
+        word_count_manual as wordCountManual,
+        word_count_display as wordCountDisplay,
+        isbn, source_url as sourceUrl,
+        reading_status as readingStatus,
+        personal_rating as personalRating,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM books
+      WHERE title LIKE ? OR author LIKE ? OR description LIKE ?
+      ORDER BY created_at DESC
+    `)
+
+    const rows = stmt.all(searchTerm, searchTerm, searchTerm) as any[]
+    return rows.map((row) => ({
+      ...row,
+      readingStatus: row.readingStatus || 'unread',
+      wordCountSource: row.wordCountSource || 'search'
+    }))
+  }
+
+  // ============================================
+  // 文档 CRUD 操作
+  // ============================================
+
+  /**
+   * 创建文档
+   */
+  createDocument(input: DocumentInput): Document {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      INSERT INTO documents (book_id, file_name, file_path, file_type, file_size, word_count)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `)
+
+    const result = stmt.run(
+      input.bookId,
+      input.fileName,
+      input.filePath,
+      input.fileType,
+      input.fileSize,
+      input.wordCount || null
+    )
+
+    return this.getDocumentById(result.lastInsertRowid as number)!
+  }
+
+  /**
+   * 根据 ID 获取文档
+   */
+  getDocumentById(id: number): Document | null {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT 
+        id, book_id as bookId, file_name as fileName, file_path as filePath,
+        file_type as fileType, file_size as fileSize, word_count as wordCount,
+        uploaded_at as uploadedAt
+      FROM documents
+      WHERE id = ?
+    `)
+
+    const row = stmt.get(id) as any
+    return row || null
+  }
+
+  /**
+   * 根据书籍 ID 获取所有文档
+   */
+  getDocumentsByBookId(bookId: number): Document[] {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT 
+        id, book_id as bookId, file_name as fileName, file_path as filePath,
+        file_type as fileType, file_size as fileSize, word_count as wordCount,
+        uploaded_at as uploadedAt
+      FROM documents
+      WHERE book_id = ?
+      ORDER BY uploaded_at DESC
+    `)
+
+    return stmt.all(bookId) as Document[]
+  }
+
+  /**
+   * 更新文档
+   */
+  updateDocument(id: number, input: Partial<DocumentInput>): Document | null {
+    const db = this.getDatabase()
+    
+    const fields: string[] = []
+    const values: any[] = []
+
+    if (input.fileName !== undefined) {
+      fields.push('file_name = ?')
+      values.push(input.fileName)
+    }
+    if (input.filePath !== undefined) {
+      fields.push('file_path = ?')
+      values.push(input.filePath)
+    }
+    if (input.fileType !== undefined) {
+      fields.push('file_type = ?')
+      values.push(input.fileType)
+    }
+    if (input.fileSize !== undefined) {
+      fields.push('file_size = ?')
+      values.push(input.fileSize)
+    }
+    if (input.wordCount !== undefined) {
+      fields.push('word_count = ?')
+      values.push(input.wordCount || null)
+    }
+
+    if (fields.length === 0) {
+      return this.getDocumentById(id)
+    }
+
+    values.push(id)
+    const stmt = db.prepare(`UPDATE documents SET ${fields.join(', ')} WHERE id = ?`)
+    stmt.run(...values)
+
+    return this.getDocumentById(id)
+  }
+
+  /**
+   * 删除文档
+   */
+  deleteDocument(id: number): boolean {
+    const db = this.getDatabase()
+    const stmt = db.prepare('DELETE FROM documents WHERE id = ?')
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  // ============================================
+  // 笔记 CRUD 操作
+  // ============================================
+
+  /**
+   * 创建笔记
+   */
+  createNote(input: NoteInput): Note {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      INSERT INTO notes (book_id, note_type, content)
+      VALUES (?, ?, ?)
+    `)
+
+    const result = stmt.run(input.bookId, input.noteType, input.content)
+
+    return this.getNoteById(result.lastInsertRowid as number)!
+  }
+
+  /**
+   * 根据 ID 获取笔记
+   */
+  getNoteById(id: number): Note | null {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT 
+        id, book_id as bookId, note_type as noteType, content,
+        created_at as createdAt
+      FROM notes
+      WHERE id = ?
+    `)
+
+    const row = stmt.get(id) as any
+    return row || null
+  }
+
+  /**
+   * 根据书籍 ID 获取所有笔记
+   */
+  getNotesByBookId(bookId: number): Note[] {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT 
+        id, book_id as bookId, note_type as noteType, content,
+        created_at as createdAt
+      FROM notes
+      WHERE book_id = ?
+      ORDER BY created_at DESC
+    `)
+
+    return stmt.all(bookId) as Note[]
+  }
+
+  /**
+   * 更新笔记
+   */
+  updateNote(id: number, input: Partial<NoteInput>): Note | null {
+    const db = this.getDatabase()
+    
+    const fields: string[] = []
+    const values: any[] = []
+
+    if (input.noteType !== undefined) {
+      fields.push('note_type = ?')
+      values.push(input.noteType)
+    }
+    if (input.content !== undefined) {
+      fields.push('content = ?')
+      values.push(input.content)
+    }
+
+    if (fields.length === 0) {
+      return this.getNoteById(id)
+    }
+
+    values.push(id)
+    const stmt = db.prepare(`UPDATE notes SET ${fields.join(', ')} WHERE id = ?`)
+    stmt.run(...values)
+
+    return this.getNoteById(id)
+  }
+
+  /**
+   * 删除笔记
+   */
+  deleteNote(id: number): boolean {
+    const db = this.getDatabase()
+    const stmt = db.prepare('DELETE FROM notes WHERE id = ?')
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  // ============================================
+  // 标签 CRUD 操作
+  // ============================================
+
+  /**
+   * 创建标签
+   */
+  createTag(input: TagInput): Tag {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      INSERT INTO tags (tag_name, color)
+      VALUES (?, ?)
+    `)
+
+    const result = stmt.run(input.tagName, input.color || null)
+
+    return this.getTagById(result.lastInsertRowid as number)!
+  }
+
+  /**
+   * 根据 ID 获取标签
+   */
+  getTagById(id: number): Tag | null {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT 
+        id, tag_name as tagName, color, created_at as createdAt
+      FROM tags
+      WHERE id = ?
+    `)
+
+    const row = stmt.get(id) as any
+    return row || null
+  }
+
+  /**
+   * 获取所有标签
+   */
+  getAllTags(): Tag[] {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT 
+        id, tag_name as tagName, color, created_at as createdAt
+      FROM tags
+      ORDER BY created_at DESC
+    `)
+
+    return stmt.all() as Tag[]
+  }
+
+  /**
+   * 根据名称获取标签
+   */
+  getTagByName(tagName: string): Tag | null {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT 
+        id, tag_name as tagName, color, created_at as createdAt
+      FROM tags
+      WHERE tag_name = ?
+    `)
+
+    const row = stmt.get(tagName) as any
+    return row || null
+  }
+
+  /**
+   * 更新标签
+   */
+  updateTag(id: number, input: Partial<TagInput>): Tag | null {
+    const db = this.getDatabase()
+    
+    const fields: string[] = []
+    const values: any[] = []
+
+    if (input.tagName !== undefined) {
+      fields.push('tag_name = ?')
+      values.push(input.tagName)
+    }
+    if (input.color !== undefined) {
+      fields.push('color = ?')
+      values.push(input.color || null)
+    }
+
+    if (fields.length === 0) {
+      return this.getTagById(id)
+    }
+
+    values.push(id)
+    const stmt = db.prepare(`UPDATE tags SET ${fields.join(', ')} WHERE id = ?`)
+    stmt.run(...values)
+
+    return this.getTagById(id)
+  }
+
+  /**
+   * 删除标签
+   */
+  deleteTag(id: number): boolean {
+    const db = this.getDatabase()
+    const stmt = db.prepare('DELETE FROM tags WHERE id = ?')
+    const result = stmt.run(id)
+    return result.changes > 0
+  }
+
+  /**
+   * 为书籍添加标签
+   */
+  addTagToBook(bookId: number, tagId: number): boolean {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      INSERT OR IGNORE INTO book_tags (book_id, tag_id)
+      VALUES (?, ?)
+    `)
+    const result = stmt.run(bookId, tagId)
+    return result.changes > 0
+  }
+
+  /**
+   * 移除书籍标签
+   */
+  removeTagFromBook(bookId: number, tagId: number): boolean {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      DELETE FROM book_tags
+      WHERE book_id = ? AND tag_id = ?
+    `)
+    const result = stmt.run(bookId, tagId)
+    return result.changes > 0
+  }
+
+  /**
+   * 获取书籍的所有标签
+   */
+  getTagsByBookId(bookId: number): Tag[] {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT 
+        t.id, t.tag_name as tagName, t.color, t.created_at as createdAt
+      FROM tags t
+      INNER JOIN book_tags bt ON t.id = bt.tag_id
+      WHERE bt.book_id = ?
+      ORDER BY t.created_at DESC
+    `)
+
+    return stmt.all(bookId) as Tag[]
+  }
+
+  // ============================================
+  // 阅读进度 CRUD 操作
+  // ============================================
+
+  /**
+   * 创建或更新阅读进度
+   */
+  upsertReadingProgress(input: ReadingProgressInput): ReadingProgress {
+    const db = this.getDatabase()
+    
+    // 先尝试更新
+    const updateStmt = db.prepare(`
+      UPDATE reading_progress
+      SET current_chapter = ?, current_page = ?, progress_percentage = ?, last_read_at = ?
+      WHERE book_id = ?
+    `)
+    
+    const updateResult = updateStmt.run(
+      input.currentChapter || null,
+      input.currentPage || null,
+      input.progressPercentage || null,
+      input.lastReadAt || new Date().toISOString(),
+      input.bookId
+    )
+
+    // 如果没有更新任何行，则插入
+    if (updateResult.changes === 0) {
+      const insertStmt = db.prepare(`
+        INSERT INTO reading_progress (book_id, current_chapter, current_page, progress_percentage, last_read_at)
+        VALUES (?, ?, ?, ?, ?)
+      `)
+      
+      insertStmt.run(
+        input.bookId,
+        input.currentChapter || null,
+        input.currentPage || null,
+        input.progressPercentage || null,
+        input.lastReadAt || new Date().toISOString()
+      )
+    }
+
+    return this.getReadingProgressByBookId(input.bookId)!
+  }
+
+  /**
+   * 根据书籍 ID 获取阅读进度
+   */
+  getReadingProgressByBookId(bookId: number): ReadingProgress | null {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT 
+        id, book_id as bookId, current_chapter as currentChapter,
+        current_page as currentPage, progress_percentage as progressPercentage,
+        last_read_at as lastReadAt
+      FROM reading_progress
+      WHERE book_id = ?
+    `)
+
+    const row = stmt.get(bookId) as any
+    return row || null
+  }
+
+  /**
+   * 删除阅读进度
+   */
+  deleteReadingProgress(bookId: number): boolean {
+    const db = this.getDatabase()
+    const stmt = db.prepare('DELETE FROM reading_progress WHERE book_id = ?')
+    const result = stmt.run(bookId)
+    return result.changes > 0
+  }
+}
+
+// 导出单例实例
+export const databaseService = new DatabaseService()
+

@@ -59,3 +59,55 @@ export interface SearchResult {
   sourceUrl: string
 }
 
+export interface Note {
+  id: number
+  bookId: number
+  noteType: 'review' | 'note' | 'excerpt'
+  content: string
+  createdAt: string
+}
+
+export interface NoteInput {
+  bookId: number
+  noteType: 'review' | 'note' | 'excerpt'
+  content: string
+}
+
+export interface Tag {
+  id: number
+  tagName: string
+  color?: string
+  createdAt: string
+}
+
+export interface TagInput {
+  tagName: string
+  color?: string
+}
+
+export interface ReadingProgress {
+  id: number
+  bookId: number
+  currentChapter?: string
+  currentPage?: number
+  progressPercentage?: number
+  lastReadAt?: string
+}
+
+export interface ReadingProgressInput {
+  bookId: number
+  currentChapter?: string
+  currentPage?: number
+  progressPercentage?: number
+  lastReadAt?: string
+}
+
+export interface DocumentInput {
+  bookId: number
+  fileName: string
+  filePath: string
+  fileType: string
+  fileSize: number
+  wordCount?: number
+}
+
