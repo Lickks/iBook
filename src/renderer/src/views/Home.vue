@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import { useUIStore } from '../stores/ui'
 import SearchBar from '../components/SearchBar.vue'
-import StatusFilter from '../components/StatusFilter.vue'
 import StatusStats from '../components/StatusStats.vue'
 import BookCard from '../components/BookCard.vue'
 
@@ -81,22 +80,17 @@ function clearFilters(): void {
       @status-click="handleStatusClick"
     />
 
-    <!-- 搜索栏和状态筛选器 -->
+    <!-- 搜索栏和清空筛选按钮 -->
     <div class="search-filter-section">
       <SearchBar />
-      <StatusFilter
-        v-model="selectedStatus"
-        placeholder="筛选状态"
-        style="margin-left: 12px;"
-      />
-      <button
+      <!-- <button
         v-if="hasActiveFilters"
         class="clear-filters-btn"
         type="button"
         @click="clearFilters"
       >
         清空筛选
-      </button>
+      </button> -->
     </div>
 
     <div v-if="bookStore.loading" class="state-card">
@@ -273,6 +267,7 @@ h2 {
 .book-collection.list {
   grid-template-columns: 1fr;
 }
+
 
 @keyframes spin {
   to {

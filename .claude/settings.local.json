@@ -4,7 +4,8 @@
       "Bash(npm run build:*)",
       "Bash(npm run dev:*)",
       "Bash(npx vue-tsc:*)",
-      "Bash(npx electron-vite build:*)"
+      "Bash(npx electron-vite build:*)",
+      "Bash(sqlite3:*)"
     ],
     "deny": [],
     "ask": []

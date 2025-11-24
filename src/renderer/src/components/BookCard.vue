@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useBookStore } from '../stores/book'
-import { READING_STATUS, READING_STATUS_LABEL } from '../constants'
+import { READING_STATUS_LABEL } from '../constants'
 import type { Book } from '../types'
 
 const props = withDefaults(
@@ -77,7 +77,7 @@ function coverFallback(title: string): string {
 
 async function updateReadingStatus(status: string): Promise<void> {
   try {
-    await bookStore.updateBook(props.book.id, { reading_status: status })
+    await bookStore.updateBook(props.book.id, { readingStatus: status })
     ElMessage.success(`状态已更新为：${READING_STATUS_LABEL[status as keyof typeof READING_STATUS_LABEL]}`)
     showStatusDropdown.value = false
   } catch (error: any) {
@@ -132,7 +132,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <article class="book-card" :class="[view, { selectable: selectable, selected }]">
+  <article class="book-card" :class="[view, { selectable: selectable, selected, 'status-dropdown-open': showStatusDropdown }]">
     <button
       v-if="selectable"
       class="select-indicator"
@@ -164,7 +164,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="status" @click="outsideClick">
+    <div class="status">
       <div class="status-wrapper">
         <span
           class="badge clickable"
@@ -366,8 +366,23 @@ onUnmounted(() => {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 100;
+  z-index: 9999;
   overflow: hidden;
+}
+
+/* 确保book-card创建新的层叠上下文 */
+.book-card {
+  position: relative;
+  z-index: 1;
+}
+
+.book-card:hover {
+  z-index: 10;
+}
+
+/* 当下拉菜单显示时，提升z-index */
+.book-card.status-dropdown-open {
+  z-index: 100;
 }
 
 .dark .status-dropdown {

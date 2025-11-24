@@ -4,7 +4,7 @@ import { READING_STATUS, READING_STATUS_LABEL } from '../constants'
 
 const props = defineProps<{
   books: Array<{
-    reading_status: string
+    readingStatus: string
   }>
   selectedStatus: string | null
 }>()
@@ -24,7 +24,7 @@ const statusStats = computed(() => {
   }
 
   props.books.forEach(book => {
-    const status = book.reading_status
+    const status = book.readingStatus || READING_STATUS.UNREAD
     if (status in stats) {
       stats[status as keyof typeof stats]++
     }
