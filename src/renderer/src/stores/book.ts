@@ -252,7 +252,7 @@ export const useBookStore = defineStore('book', () => {
     loading.value = true
     try {
       const updatePromises = bookIds.map(id =>
-        bookAPI.updateBook(id, { reading_status: status })
+        bookAPI.updateBook(id, { readingStatus: status })
       )
 
       const updatedBooks = await Promise.all(updatePromises)
