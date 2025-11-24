@@ -12,7 +12,8 @@
       "Bash(npm uninstall:*)",
       "Bash(npx electron:*)",
       "Bash(cat:*)",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
