@@ -32,6 +32,9 @@ export interface BookInput {
   description?: string
   wordCountDisplay?: number
   wordCountSource?: 'search' | 'document' | 'manual'
+  wordCountSearch?: number
+  wordCountDocument?: number
+  wordCountManual?: number
   isbn?: string
   sourceUrl?: string
   readingStatus?: string

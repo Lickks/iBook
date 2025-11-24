@@ -141,9 +141,9 @@ class DatabaseService {
       input.category || null,
       input.description || null,
       input.wordCountSource || 'search',
-      null,
-      null,
-      null,
+      input.wordCountSearch || null,
+      input.wordCountDocument || null,
+      input.wordCountManual || null,
       input.wordCountDisplay || null,
       input.isbn || null,
       input.sourceUrl || null,
@@ -276,6 +276,18 @@ class DatabaseService {
     if (input.wordCountDisplay !== undefined) {
       fields.push('word_count_display = ?')
       values.push(input.wordCountDisplay || null)
+    }
+    if (input.wordCountSearch !== undefined) {
+      fields.push('word_count_search = ?')
+      values.push(input.wordCountSearch || null)
+    }
+    if (input.wordCountDocument !== undefined) {
+      fields.push('word_count_document = ?')
+      values.push(input.wordCountDocument || null)
+    }
+    if (input.wordCountManual !== undefined) {
+      fields.push('word_count_manual = ?')
+      values.push(input.wordCountManual || null)
     }
     if (input.isbn !== undefined) {
       fields.push('isbn = ?')

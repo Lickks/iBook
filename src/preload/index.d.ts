@@ -16,10 +16,11 @@ declare global {
         search: (keyword: string) => Promise<ApiResponse>
       }
       document: {
-        upload: (input: DocumentInput) => Promise<ApiResponse>
+        selectFile: () => Promise<ApiResponse<string>>
+        upload: (filePath: string, bookId: number) => Promise<ApiResponse>
         delete: (id: number) => Promise<ApiResponse>
-        open: (filePath: string) => Promise<ApiResponse>
-        countWords: (filePath: string) => Promise<ApiResponse>
+        open: (fileName: string) => Promise<ApiResponse>
+        countWords: (fileName: string) => Promise<ApiResponse<number>>
         getByBookId: (bookId: number) => Promise<ApiResponse>
         update: (id: number, input: Partial<DocumentInput>) => Promise<ApiResponse>
       }

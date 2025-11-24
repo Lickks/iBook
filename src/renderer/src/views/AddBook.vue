@@ -70,6 +70,7 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
       category,
       description: result.description,
       wordCountDisplay: result.wordCount || undefined,
+      wordCountSearch: result.wordCount || undefined,
       sourceUrl: result.sourceUrl,
       wordCountSource: 'search'
     }

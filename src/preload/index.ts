@@ -20,12 +20,13 @@ const api = {
 
   // 文档操作
   document: {
-    upload: (input: DocumentInput): Promise<ApiResponse> =>
-      ipcRenderer.invoke('document:upload', input),
+    selectFile: (): Promise<ApiResponse<string>> => ipcRenderer.invoke('document:selectFile'),
+    upload: (filePath: string, bookId: number): Promise<ApiResponse> =>
+      ipcRenderer.invoke('document:upload', filePath, bookId),
     delete: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('document:delete', id),
-    open: (filePath: string): Promise<ApiResponse> => ipcRenderer.invoke('document:open', filePath),
-    countWords: (filePath: string): Promise<ApiResponse> =>
-      ipcRenderer.invoke('document:countWords', filePath),
+    open: (fileName: string): Promise<ApiResponse> => ipcRenderer.invoke('document:open', fileName),
+    countWords: (fileName: string): Promise<ApiResponse<number>> =>
+      ipcRenderer.invoke('document:countWords', fileName),
     getByBookId: (bookId: number): Promise<ApiResponse> =>
       ipcRenderer.invoke('document:getByBookId', bookId),
     update: (id: number, input: Partial<DocumentInput>): Promise<ApiResponse> =>

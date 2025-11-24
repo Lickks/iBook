@@ -82,6 +82,27 @@ function handleSubmit(): void {
     sourceUrl: form.sourceUrl || undefined
   }
 
+  // 如果用户输入了字数，且没有设置字数来源（说明是纯手动录入），则设置为手动输入
+  if (parsedWordCount !== undefined && !Number.isNaN(parsedWordCount)) {
+    const existingSource = props.initialValue?.wordCountSource
+
+    // 如果已有来源，保持原来的来源和对应字段
+    if (existingSource) {
+      payload.wordCountSource = existingSource
+      if (existingSource === 'search') {
+        payload.wordCountSearch = props.initialValue?.wordCountSearch
+      } else if (existingSource === 'document') {
+        payload.wordCountDocument = props.initialValue?.wordCountDocument
+      } else if (existingSource === 'manual') {
+        payload.wordCountManual = parsedWordCount
+      }
+    } else {
+      // 没有来源，说明是纯手动录入，设置为 manual
+      payload.wordCountSource = 'manual'
+      payload.wordCountManual = parsedWordCount
+    }
+  }
+
   emit('submit', payload)
 }
 

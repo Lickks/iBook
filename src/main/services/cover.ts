@@ -1,5 +1,5 @@
 import axios from 'axios'
-import Jimp from 'jimp'
+import { Jimp } from 'jimp'
 import { app } from 'electron'
 import { join } from 'path'
 import { access, mkdir } from 'fs/promises'

@@ -1,5 +1,7 @@
-import { ipcMain, IpcMainInvokeEvent, shell } from 'electron'
+import { ipcMain, IpcMainInvokeEvent, dialog } from 'electron'
 import { databaseService } from '../services/database'
+import fileManager from '../services/fileManager'
+import wordCounter from '../services/wordCounter'
 import type { DocumentInput } from '../../renderer/src/types/book'
 
 /**
@@ -7,13 +9,64 @@ import type { DocumentInput } from '../../renderer/src/types/book'
  */
 export function setupDocumentHandlers(): void {
   /**
-   * 上传文档
-   * 注意：实际的文件上传和保存逻辑将在后续阶段实现
+   * 上传文档（选择文件）
+   */
+  ipcMain.handle('document:selectFile', async (_event: IpcMainInvokeEvent) => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+          { name: '文档文件', extensions: ['txt', 'epub', 'pdf', 'docx', 'doc'] },
+          { name: '所有文件', extensions: ['*'] }
+        ]
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, error: '未选择文件' }
+      }
+
+      return { success: true, data: result.filePaths[0] }
+    } catch (error: any) {
+      console.error('选择文件失败:', error)
+      return {
+        success: false,
+        error: error?.message || '选择文件失败'
+      }
+    }
+  })
+
+  /**
+   * 上传文档（保存文件并创建记录）
    */
   ipcMain.handle(
     'document:upload',
-    async (_event: IpcMainInvokeEvent, input: DocumentInput) => {
+    async (_event: IpcMainInvokeEvent, filePath: string, bookId: number) => {
       try {
+        // 保存文件
+        const fileName = await fileManager.saveFile(filePath, bookId)
+
+        // 获取文件大小
+        const fileSize = fileManager.getFileSize(fileName)
+
+        // 统计字数
+        let wordCount = 0
+        try {
+          const savedFilePath = fileManager.getFilePath(fileName)
+          wordCount = await wordCounter.countWords(savedFilePath)
+        } catch (error) {
+          console.warn('字数统计失败，使用默认值 0:', error)
+        }
+
+        // 创建文档记录
+        const input: DocumentInput = {
+          bookId,
+          fileName,
+          filePath: fileName,
+          fileType: fileName.split('.').pop() || '',
+          fileSize,
+          wordCount
+        }
+
         const document = databaseService.createDocument(input)
         return { success: true, data: document }
       } catch (error: any) {
@@ -49,8 +102,12 @@ export function setupDocumentHandlers(): void {
         }
       }
 
-      // TODO: 后续阶段实现文件删除逻辑
-      // fileManager.deleteFile(document.filePath)
+      // 删除文件
+      try {
+        await fileManager.deleteFile(document.filePath)
+      } catch (error) {
+        console.warn('删除文件失败（数据库记录已删除）:', error)
+      }
 
       return { success: true }
     } catch (error: any) {
@@ -65,10 +122,9 @@ export function setupDocumentHandlers(): void {
   /**
    * 打开文档
    */
-  ipcMain.handle('document:open', async (_event: IpcMainInvokeEvent, filePath: string) => {
+  ipcMain.handle('document:open', async (_event: IpcMainInvokeEvent, fileName: string) => {
     try {
-      // 使用系统默认程序打开文件
-      await shell.openPath(filePath)
+      await fileManager.openFile(fileName)
       return { success: true }
     } catch (error: any) {
       console.error('打开文档失败:', error)
@@ -81,18 +137,12 @@ export function setupDocumentHandlers(): void {
 
   /**
    * 统计文档字数
-   * 注意：实际的字数统计逻辑将在后续阶段实现
    */
-  ipcMain.handle('document:countWords', async (_event: IpcMainInvokeEvent, filePath: string) => {
+  ipcMain.handle('document:countWords', async (_event: IpcMainInvokeEvent, fileName: string) => {
     try {
-      // TODO: 后续阶段实现字数统计逻辑
-      // const wordCount = await wordCounter.countWords(filePath)
-      // return { success: true, data: wordCount }
-      
-      return {
-        success: false,
-        error: '字数统计功能尚未实现'
-      }
+      const filePath = fileManager.getFilePath(fileName)
+      const wordCount = await wordCounter.countWords(filePath)
+      return { success: true, data: wordCount }
     } catch (error: any) {
       console.error('统计字数失败:', error)
       return {
