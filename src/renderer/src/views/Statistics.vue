@@ -1,163 +1,148 @@
 <template>
-  <div class="statistics">
-    <!-- 页面标题和操作区 -->
-    <div class="statistics__header">
-      <div class="statistics__title">
-        <h1>统计分析</h1>
-        <p class="statistics__subtitle">查看您的阅读数据和统计信息</p>
-      </div>
-      <div class="statistics__actions">
-        <el-button-group>
-          <el-button
-            type="primary"
-            :icon="Download"
-            @click="showExportDialog = true"
-          >
-            导出数据
-          </el-button>
-          <el-button
-            :icon="Refresh"
-            @click="refreshData"
-            :loading="loading"
-          >
-            刷新
-          </el-button>
-        </el-button-group>
+  <div class="statistics-page">
+    <!-- 页面标题 -->
+    <div class="page-header">
+      <h1>统计分析</h1>
+      <p class="subtitle">查看您的阅读数据和统计信息</p>
+      <div class="actions">
+        <el-button @click="refreshData" :loading="loading">刷新数据</el-button>
+        <el-button type="primary" @click="showExportDialog = true">导出数据</el-button>
       </div>
     </div>
 
-    <!-- 加载状态 -->
-    <div v-if="loading" class="statistics__loading">
-      <el-skeleton :rows="8" animated />
+    <!-- 加载中 -->
+    <div v-if="loading" class="loading-container">
+      <el-icon class="is-loading"><Loading /></el-icon>
+      <p>正在加载统计数据...</p>
     </div>
 
-    <!-- 统计内容 -->
-    <div v-else-if="statisticsData" class="statistics__content">
-      <!-- 总体统计卡片 -->
-      <div class="statistics__overview">
-        <div class="stat-card">
-          <h3>总书籍数</h3>
-          <div class="value">{{ statisticsData.totalBooks }}</div>
-          <div class="unit">本</div>
+    <!-- 统计数据 -->
+    <div v-else-if="data" class="stats-container">
+      <!-- 统计卡片网格 -->
+      <div class="stats-grid">
+        <div class="stat-card primary">
+          <div class="stat-icon">📚</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ data.totalBooks }}</div>
+            <div class="stat-label">总书籍数</div>
+          </div>
         </div>
-        <div class="stat-card">
-          <h3>总字数</h3>
-          <div class="value">{{ formatWordCount(statisticsData.totalWordCount) }}</div>
-          <div class="unit">字</div>
+
+        <div class="stat-card success">
+          <div class="stat-icon">📖</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ formatNumber(data.totalWordCount) }}</div>
+            <div class="stat-label">总字数</div>
+          </div>
         </div>
-          <div class="stat-card">
-          <h3>已读完</h3>
-          <div class="value">{{ statisticsData.finishedBooks }}</div>
-          <div class="unit">本</div>
+
+  
+        <div class="stat-card info">
+          <div class="stat-icon">✅</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ data.finishedBooks }}</div>
+            <div class="stat-label">已读完</div>
+          </div>
         </div>
-        <div class="stat-card">
-          <h3>阅读中</h3>
-          <div class="value">{{ statisticsData.readingBooks }}</div>
-          <div class="unit">本</div>
+
+        <div class="stat-card primary">
+          <div class="stat-icon">📖</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ data.readingBooks }}</div>
+            <div class="stat-label">阅读中</div>
+          </div>
         </div>
-        <div class="stat-card">
-          <h3>未读</h3>
-          <div class="value">{{ statisticsData.unreadBooks }}</div>
-          <div class="unit">本</div>
+
+        <div class="stat-card secondary">
+          <div class="stat-icon">📋</div>
+          <div class="stat-content">
+            <div class="stat-value">{{ data.unreadBooks }}</div>
+            <div class="stat-label">未读</div>
+          </div>
         </div>
       </div>
 
       <!-- 图表区域 -->
-      <div class="statistics__charts">
-        <!-- 第一行：三个图表 -->
-        <div class="statistics__chart-row">
-          <!-- 类型分布饼图 -->
-          <div class="statistics__chart-item">
-            <BaseChart
-              title="类型分布"
-              :data="statisticsData?.categoryStats"
-              height="350px"
-              :loading="loading"
-              chart-type="pie"
-              pie-type="ring"
-              :show-percentage="true"
-              :responsive="true"
-            />
+      <div class="charts-section">
+        <!-- 第一行图表 -->
+        <div class="charts-row">
+          <div class="chart-card">
+            <h3>阅读状态分布</h3>
+            <div ref="statusChartRef" class="chart"></div>
           </div>
-
-          <!-- 平台分布饼图 -->
-          <div class="statistics__chart-item">
-            <BaseChart
-              title="平台分布"
-              :data="statisticsData?.platformStats"
-              height="350px"
-              :loading="loading"
-              chart-type="pie"
-              pie-type="ring"
-              :show-percentage="true"
-              :responsive="true"
-            />
+          <div class="chart-card">
+            <h3>类型分布</h3>
+            <div ref="categoryChartRef" class="chart"></div>
           </div>
-
-          <!-- 阅读状态分布饼图 -->
-          <div class="statistics__chart-item">
-            <BaseChart
-              title="阅读状态分布"
-              :data="statusChartData"
-              height="350px"
-              :loading="loading"
-              chart-type="pie"
-              pie-type="ring"
-              :show-percentage="true"
-              :responsive="true"
-            />
+          <div class="chart-card">
+            <h3>平台分布</h3>
+            <div ref="platformChartRef" class="chart"></div>
           </div>
         </div>
 
-        <!-- 第二行：字数分布柱状图 -->
-        <div class="statistics__chart-row">
-          <!-- 字数分布柱状图 -->
-          <div class="statistics__chart-item statistics__chart-item--full">
-            <BaseChart
-              title="字数分布"
-              :data="wordCountDistribution"
-              height="350px"
-              :loading="loading"
-              chart-type="bar"
-              :show-label="true"
-              orientation="vertical"
-              :responsive="true"
-              y-axis-name="书籍数量"
-              x-axis-name="字数区间"
-            />
+        <!-- 第二行图表 -->
+        <div class="charts-row">
+          <div class="chart-card chart-full">
+            <h3>字数分布</h3>
+            <div ref="wordCountChartRef" class="chart"></div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- 空状态 -->
-    <div v-else class="statistics__empty">
-      <el-empty
-        description="暂无统计数据"
-        :image-size="200"
-      >
-        <template #description>
-          <p>您还没有添加任何书籍</p>
-          <p class="statistics__empty-tip">添加书籍后即可查看详细的统计信息</p>
-        </template>
-        <el-button type="primary" @click="$router.push('/add')">
-          添加书籍
-        </el-button>
+    <div v-else class="empty-state">
+      <el-empty description="暂无统计数据">
+        <el-button type="primary" @click="$router.push('/add')">添加第一本书</el-button>
       </el-empty>
     </div>
 
     <!-- 导出对话框 -->
-    <el-dialog
-      v-model="showExportDialog"
-      title="导出数据"
-      width="500px"
-    >
-      <div class="export-dialog__content">
-        <p>导出功能开发中...</p>
+    <el-dialog v-model="showExportDialog" title="导出数据" width="500px">
+      <div class="export-form">
+        <div class="export-section">
+          <h4>导出格式</h4>
+          <el-radio-group v-model="exportFormat">
+            <el-radio label="excel">Excel文件 (.xlsx)</el-radio>
+            <el-radio label="csv">CSV文件 (.csv)</el-radio>
+          </el-radio-group>
+        </div>
+
+        <div class="export-section">
+          <h4>包含数据</h4>
+          <el-checkbox-group v-model="exportData">
+            <el-checkbox label="books">书籍信息</el-checkbox>
+            <el-checkbox label="statistics">统计数据</el-checkbox>
+            <el-checkbox label="annual">年度报告</el-checkbox>
+          </el-checkbox-group>
+        </div>
+
+        <div class="export-section">
+          <h4>时间范围（可选）</h4>
+          <el-date-picker
+            v-model="dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+          />
+        </div>
       </div>
+
       <template #footer>
-        <div class="export-dialog__footer">
+        <div class="dialog-footer">
           <el-button @click="showExportDialog = false">取消</el-button>
+          <el-button
+            type="primary"
+            @click="handleExport"
+            :loading="exporting"
+            :disabled="exportData.length === 0"
+          >
+            {{ exporting ? '导出中...' : '导出' }}
+          </el-button>
         </div>
       </template>
     </el-dialog>
@@ -165,76 +150,351 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Download, Refresh } from '@element-plus/icons-vue'
-import statsApi from '@renderer/api/stats'
-import type { StatisticsData } from '@renderer/api/stats'
-import BaseChart from '@renderer/components/stats/BaseChart.vue'
+import { Loading } from '@element-plus/icons-vue'
 
-// 响应式数据
-const loading = ref(false)
-const showExportDialog = ref(false)
-const statisticsData = ref<StatisticsData>()
-
-// 计算字数分布数据
-const wordCountDistribution = computed(() => {
-  if (!statisticsData.value?.totalBooks) return []
-
-  // 为了演示，我们根据总字数创建模拟分布
-  // 在实际应用中，这应该从后端获取详细的书籍数据
-  const totalBooks = statisticsData.value.totalBooks
-  const distribution = [
-    { name: '0-5万字', value: Math.round(totalBooks * 0.3) },
-    { name: '5-10万字', value: Math.round(totalBooks * 0.4) },
-    { name: '10-20万字', value: Math.round(totalBooks * 0.2) },
-    { name: '20万字以上', value: Math.round(totalBooks * 0.1) }
-  ]
-
-  // 确保总数不超过实际书籍数量
-  const totalInDistribution = distribution.reduce((sum, item) => sum + item.value, 0)
-  if (totalInDistribution > totalBooks) {
-    const scaleFactor = totalBooks / totalInDistribution
-    distribution.forEach(item => {
-      item.value = Math.round(item.value * scaleFactor)
-    })
-  }
-
-  return distribution.filter(item => item.value > 0)
-})
-
-// 格式化字数显示
-const formatWordCount = (count: number) => {
-  if (count >= 10000) {
-    return (count / 10000).toFixed(1) + '万'
-  }
-  return count.toString()
+interface Book {
+  id: string
+  title: string
+  author: string
+  category: string
+  platform: string
+  status: string
+  rating: number
+  wordCount: number
 }
 
-// 转换阅读状态数据为图表格式
-const statusChartData = computed(() => {
-  if (!statisticsData.value) return []
+interface ChartData {
+  name: string
+  value: number
+  percentage?: number
+}
 
-  return [
-    { name: '已读完', value: statisticsData.value.finishedBooks },
-    { name: '阅读中', value: statisticsData.value.readingBooks },
-    { name: '未读', value: statisticsData.value.unreadBooks }
-  ].filter(item => item.value > 0)
-})
+interface MonthlyData {
+  month: string
+  bookCount: number
+  wordCount: number
+}
+
+interface StatisticsData {
+  totalBooks: number
+  totalWordCount: number
+  averageRating: number
+  finishedBooks: number
+  readingBooks: number
+  unreadBooks: number
+  categoryStats: ChartData[]
+  platformStats: ChartData[]
+  statusStats: ChartData[]
+  wordCountStats: ChartData[]
+  monthlyStats: {
+    books: MonthlyData[]
+    words: MonthlyData[]
+  }
+}
+
+const loading = ref(false)
+const showExportDialog = ref(false)
+const exporting = ref(false)
+const exportFormat = ref('excel')
+const exportData = ref(['books', 'statistics', 'annual'])
+const dateRange = ref<[string, string] | []>([])
+const data = ref<StatisticsData | null>(null)
+const statusChartRef = ref<HTMLDivElement>()
+const categoryChartRef = ref<HTMLDivElement>()
+const platformChartRef = ref<HTMLDivElement>()
+const wordCountChartRef = ref<HTMLDivElement>()
+let statusChartInstance: any = null
+let categoryChartInstance: any = null
+let platformChartInstance: any = null
+let wordCountChartInstance: any = null
+
+// 格式化数字显示
+const formatNumber = (num: number) => {
+  if (num >= 100000000) {
+    return (num / 100000000).toFixed(1) + '亿'
+  } else if (num >= 10000) {
+    return (num / 10000).toFixed(1) + '万'
+  }
+  return num.toString()
+}
+
+// 创建阅读状态饼图
+const createStatusChart = () => {
+  if (!statusChartRef.value || !data.value) return
+
+  try {
+    import('echarts').then(echarts => {
+      if (statusChartInstance) {
+        statusChartInstance.dispose()
+      }
+
+      statusChartInstance = echarts.init(statusChartRef.value)
+
+      // 使用后端已计算的状态统计数据
+      const statusData = data.value!.statusStats.map(item => ({
+        name: item.name,
+        value: item.value
+      }))
+
+      const option = {
+        tooltip: {
+          trigger: 'item',
+          formatter: '{a} <br/>{b}: {c} ({d}%)'
+        },
+        legend: {
+          orient: 'vertical',
+          left: 'left'
+        },
+        series: [
+          {
+            name: '阅读状态',
+            type: 'pie',
+            radius: ['40%', '70%'],
+            avoidLabelOverlap: false,
+            itemStyle: {
+              borderRadius: 10,
+              borderColor: '#fff',
+              borderWidth: 2
+            },
+            label: {
+              show: false,
+              position: 'center'
+            },
+            emphasis: {
+              label: {
+                show: true,
+                fontSize: '20',
+                fontWeight: 'bold'
+              }
+            },
+            labelLine: {
+              show: false
+            },
+            data: statusData
+          }
+        ]
+      }
+
+      statusChartInstance.setOption(option)
+    })
+  } catch (error) {
+    console.error('阅读状态图表创建失败:', error)
+  }
+}
+
+// 创建类型分布饼图
+const createCategoryChart = () => {
+  if (!categoryChartRef.value || !data.value) return
+
+  try {
+    import('echarts').then(echarts => {
+      if (categoryChartInstance) {
+        categoryChartInstance.dispose()
+      }
+
+      categoryChartInstance = echarts.init(categoryChartRef.value)
+
+      // 使用后端已计算的类型统计数据
+      const categoryData = data.value!.categoryStats.map(item => ({
+        name: item.name,
+        value: item.value
+      }))
+
+      const option = {
+        tooltip: {
+          trigger: 'item',
+          formatter: '{a} <br/>{b}: {c} ({d}%)'
+        },
+        legend: {
+          orient: 'vertical',
+          left: 'left'
+        },
+        series: [
+          {
+            name: '书籍类型',
+            type: 'pie',
+            radius: ['40%', '70%'],
+            avoidLabelOverlap: false,
+            itemStyle: {
+              borderRadius: 10,
+              borderColor: '#fff',
+              borderWidth: 2
+            },
+            label: {
+              show: false,
+              position: 'center'
+            },
+            emphasis: {
+              label: {
+                show: true,
+                fontSize: '20',
+                fontWeight: 'bold'
+              }
+            },
+            labelLine: {
+              show: false
+            },
+            data: categoryData
+          }
+        ]
+      }
+
+      categoryChartInstance.setOption(option)
+    })
+  } catch (error) {
+    console.error('类型分布图表创建失败:', error)
+  }
+}
+
+// 创建平台分布饼图
+const createPlatformChart = () => {
+  if (!platformChartRef.value || !data.value) return
+
+  try {
+    import('echarts').then(echarts => {
+      if (platformChartInstance) {
+        platformChartInstance.dispose()
+      }
+
+      platformChartInstance = echarts.init(platformChartRef.value)
+
+      // 使用后端已计算的平台统计数据
+      const platformData = data.value!.platformStats.map(item => ({
+        name: item.name,
+        value: item.value
+      }))
+
+      const option = {
+        tooltip: {
+          trigger: 'item',
+          formatter: '{a} <br/>{b}: {c} ({d}%)'
+        },
+        legend: {
+          orient: 'vertical',
+          left: 'left'
+        },
+        series: [
+          {
+            name: '阅读平台',
+            type: 'pie',
+            radius: ['40%', '70%'],
+            avoidLabelOverlap: false,
+            itemStyle: {
+              borderRadius: 10,
+              borderColor: '#fff',
+              borderWidth: 2
+            },
+            label: {
+              show: false,
+              position: 'center'
+            },
+            emphasis: {
+              label: {
+                show: true,
+                fontSize: '20',
+                fontWeight: 'bold'
+              }
+            },
+            labelLine: {
+              show: false
+            },
+            data: platformData
+          }
+        ]
+      }
+
+      platformChartInstance.setOption(option)
+    })
+  } catch (error) {
+    console.error('平台分布图表创建失败:', error)
+  }
+}
+
+// 创建字数分布柱状图
+const createWordCountChart = () => {
+  if (!wordCountChartRef.value || !data.value) return
+
+  try {
+    import('echarts').then(echarts => {
+      if (wordCountChartInstance) {
+        wordCountChartInstance.dispose()
+      }
+
+      wordCountChartInstance = echarts.init(wordCountChartRef.value)
+
+      // 使用后端已计算的字数统计数据
+      const categories = data.value!.wordCountStats.map(item => item.name)
+      const values = data.value!.wordCountStats.map(item => item.value)
+
+      const option = {
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: {
+            type: 'shadow'
+          }
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '3%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: categories,
+          axisTick: {
+            alignWithLabel: true
+          }
+        },
+        yAxis: {
+          type: 'value'
+        },
+        series: [
+          {
+            name: '书籍数量',
+            type: 'bar',
+            barWidth: '60%',
+            data: values.map((value, index) => ({
+              value,
+              itemStyle: {
+                color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'][index % 6]
+              }
+            }))
+          }
+        ]
+      }
+
+      wordCountChartInstance.setOption(option)
+    })
+  } catch (error) {
+    console.error('字数分布图表创建失败:', error)
+  }
+}
+
 
 // 获取统计数据
-const fetchStatistics = async () => {
+const fetchData = async () => {
   loading.value = true
   try {
-    console.log('开始获取统计数据...')
-    const response = await statsApi.getOverview()
-    console.log('统计数据响应:', response)
+    console.log('获取统计数据...')
+    const response = await window.api.stats?.getOverview()
+    console.log('统计响应:', response)
 
-    if (response.success && response.data) {
-      statisticsData.value = response.data
-      console.log('统计数据获取成功:', statisticsData.value)
+    if (response && response.success && response.data) {
+      data.value = response.data
+      console.log('数据加载成功:', data.value)
+
+      // 延迟创建图表，确保DOM已渲染
+      setTimeout(() => {
+        createStatusChart()
+        createCategoryChart()
+        createPlatformChart()
+        createWordCountChart()
+      }, 100)
     } else {
-      ElMessage.error(response.error || '获取统计数据失败')
+      throw new Error(response?.error || '获取数据失败')
     }
   } catch (error) {
     console.error('获取统计数据失败:', error)
@@ -245,98 +505,276 @@ const fetchStatistics = async () => {
 }
 
 // 刷新数据
-const refreshData = async () => {
-  await fetchStatistics()
+const refreshData = () => {
+  // 销毁所有图表实例
+  if (statusChartInstance) {
+    statusChartInstance.dispose()
+    statusChartInstance = null
+  }
+  if (categoryChartInstance) {
+    categoryChartInstance.dispose()
+    categoryChartInstance = null
+  }
+  if (platformChartInstance) {
+    platformChartInstance.dispose()
+    platformChartInstance = null
+  }
+  if (wordCountChartInstance) {
+    wordCountChartInstance.dispose()
+    wordCountChartInstance = null
+  }
+  fetchData()
   ElMessage.success('数据已刷新')
 }
 
-// 生命周期
+// 处理导出
+const handleExport = async () => {
+  exporting.value = true
+
+  try {
+    console.log('开始导出数据...', {
+      format: exportFormat.value,
+      dataTypes: exportData.value,
+      dateRange: dateRange.value
+    })
+
+    const exportOptions = {
+      format: exportFormat.value as 'excel' | 'csv',
+      dateRange: dateRange.value.length === 2 ? {
+        start: dateRange.value[0],
+        end: dateRange.value[1]
+      } : undefined,
+      dataTypes: {
+        books: exportData.value.includes('books'),
+        statistics: exportData.value.includes('statistics'),
+        annual: exportData.value.includes('annual')
+      }
+    }
+
+    const response = await window.api.stats?.exportData(exportOptions)
+
+    if (response && response.success) {
+      ElMessage.success(`数据导出成功！文件：${response.data?.fileName || '导出文件'}`)
+      showExportDialog.value = false
+
+      // 重置表单
+      exportFormat.value = 'excel'
+      exportData.value = ['books', 'statistics', 'annual']
+      dateRange.value = []
+    } else {
+      throw new Error(response?.error || '导出失败')
+    }
+  } catch (error) {
+    console.error('导出数据失败:', error)
+    ElMessage.error('导出数据失败，请重试')
+  } finally {
+    exporting.value = false
+  }
+}
+
 onMounted(() => {
-  console.log('Statistics组件已挂载')
-  fetchStatistics()
+  console.log('统计分析页面加载')
+  fetchData()
 })
 </script>
 
 <style scoped>
-.statistics {
-  @apply p-6 space-y-6 max-w-7xl mx-auto;
+.statistics-page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
-/* 页面头部 */
-.statistics__header {
-  @apply flex items-center justify-between mb-8;
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--el-border-color-light, #e5e7eb);
 }
 
-.statistics__title h1 {
-  @apply text-3xl font-bold text-gray-900 mb-2;
+.page-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 4px 0;
 }
 
-.statistics__subtitle {
-  @apply text-gray-600 text-lg;
+.subtitle {
+  color: var(--el-text-color-secondary, #6b7280);
+  margin: 0;
+  font-size: 16px;
 }
 
-/* 总体统计卡片区域 */
-.statistics__overview {
-  @apply grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8;
+.actions {
+  display: flex;
+  gap: 12px;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  color: var(--el-text-color-secondary, #6b7280);
+}
+
+.loading-container .el-icon {
+  font-size: 32px;
+  margin-bottom: 16px;
+  color: #3b82f6;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
 }
 
 .stat-card {
-  @apply bg-gradient-to-br from-white to-gray-50 rounded-lg shadow-sm border border-gray-200 p-4 text-center hover:shadow-md transition-shadow;
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 1px 3px 0 var(--color-card-shadow);
+  border: 1px solid var(--color-border);
+  transition: all 0.2s;
 }
 
-.stat-card h3 {
-  @apply text-sm font-medium text-gray-600 mb-2;
+.stat-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
 }
 
-.stat-card .value {
-  @apply text-2xl font-bold text-gray-900 mb-1;
+.stat-icon {
+  font-size: 32px;
+  margin-right: 16px;
 }
 
-.stat-card .unit {
-  @apply text-xs text-gray-500;
+.stat-content {
+  flex: 1;
 }
 
-/* 图表区域 */
-.statistics__charts {
-  @apply space-y-8;
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1;
+  margin-bottom: 4px;
 }
 
-.statistics__chart-row {
-  @apply grid grid-cols-1 lg:grid-cols-3 gap-6;
+.stat-label {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
-.statistics__chart-item {
-  @apply bg-white rounded-lg shadow-sm border border-gray-100 p-6;
+.charts-section {
+  margin-top: 40px;
 }
 
-.statistics__chart-item--full {
-  @apply col-span-1 lg:col-span-3;
+.chart-card {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px 0 var(--color-card-shadow);
+  border: 1px solid var(--color-border);
 }
 
-.chart-container {
+.chart-card h3 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.chart {
   width: 100%;
+  height: 300px;
 }
 
-/* 加载状态 */
-.statistics__loading {
-  @apply bg-white rounded-lg shadow-sm border border-gray-100 p-6;
+.charts-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
 }
 
-/* 空状态 */
-.statistics__empty {
-  @apply flex items-center justify-center min-h-[400px] bg-white rounded-lg shadow-sm border border-gray-100;
+.chart-full {
+  grid-column: 1 / -1;
 }
 
-.statistics__empty-tip {
-  @apply text-sm text-gray-500 mt-2;
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
 }
 
-/* 导出对话框 */
-.export-dialog__content {
-  @apply space-y-4;
+/* 导出表单样式 */
+.export-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.export-dialog__footer {
-  @apply flex justify-end space-x-3;
+.export-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.export-section .el-radio-group,
+.export-section .el-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .statistics-page {
+    padding: 16px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .actions {
+    align-self: stretch;
+    justify-content: flex-end;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+  }
+
+  .stat-card {
+    padding: 16px;
+  }
+
+  .stat-icon {
+    font-size: 24px;
+    margin-right: 12px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
 }
 </style>
