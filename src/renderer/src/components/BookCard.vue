@@ -167,28 +167,8 @@ onUnmounted(() => {
     >
       <span v-if="selected">✔</span>
     </button>
-    <div class="cover">
-      <img v-if="book.coverUrl" :src="book.coverUrl" :alt="book.title" loading="lazy" />
-      <span v-else>{{ coverFallback(book.title) }}</span>
-    </div>
 
-    <div class="info">
-      <span class="title" v-html="highlightText(book.title)" />
-      <p class="meta">
-        <span v-html="highlightText(book.author || '未知作者')" />
-        <span class="dot">•</span>
-        <span>{{ book.platform || '未知平台' }}</span>
-      </p>
-
-      <p class="description" v-html="highlightText(book.description || '暂无简介')" />
-
-      <div class="stats">
-        <span>{{ formatWordCount(book.wordCountDisplay) }}</span>
-        <span class="dot">•</span>
-        <span>评分：{{ book.personalRating ?? '暂无' }}</span>
-      </div>
-    </div>
-
+    <!-- 左上角阅读状态标签 -->
     <div class="status">
       <div class="status-wrapper">
         <span
@@ -214,6 +194,22 @@ onUnmounted(() => {
             <span v-if="key === book.readingStatus" class="check">✓</span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="cover">
+      <img v-if="book.coverUrl" :src="book.coverUrl" :alt="book.title" loading="lazy" />
+      <span v-else>{{ coverFallback(book.title) }}</span>
+    </div>
+
+    <div class="info">
+      <span class="title" v-html="highlightText(book.title)" />
+      <p class="meta">
+        <span v-html="highlightText(book.author || '未知作者')" />
+      </p>
+
+      <div class="stats">
+        <span>{{ formatWordCount(book.wordCountDisplay) }}</span>
       </div>
     </div>
   </article>
@@ -269,7 +265,7 @@ onUnmounted(() => {
 .select-indicator {
   position: absolute;
   top: 12px;
-  left: 12px;
+  right: 12px;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -342,10 +338,6 @@ onUnmounted(() => {
   justify-content: center;
 }
 
-.book-card.grid .status {
-  align-self: center;
-}
-
 .title {
   font-size: 18px;
   font-weight: 600;
@@ -382,42 +374,48 @@ onUnmounted(() => {
 }
 
 .status {
-  align-self: flex-start;
-  position: relative;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+}
+
+/* 调整状态标签样式，避免遮挡封面 */
+.badge {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--color-accent-soft);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(4px);
 }
 
 .status-wrapper {
   position: relative;
 }
 
-.badge {
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--color-accent-soft);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  user-select: none;
-}
-
 .badge.clickable {
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
-  padding-right: 24px;
+  padding-right: 20px;
 }
 
 .badge.clickable:hover {
-  opacity: 0.8;
+  opacity: 0.9;
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .arrow {
   position: absolute;
-  right: 8px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 10px;
+  font-size: 9px;
   opacity: 0.8;
 }
 
