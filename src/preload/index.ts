@@ -11,6 +11,8 @@ const api = {
     update: (id: number, input: Partial<BookInput>): Promise<ApiResponse> =>
       ipcRenderer.invoke('book:update', id, input),
     delete: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('book:delete', id),
+    deleteBatch: (ids: number[]): Promise<ApiResponse> =>
+      ipcRenderer.invoke('book:deleteBatch', ids),
     getById: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('book:getById', id),
     getAll: (): Promise<ApiResponse> => ipcRenderer.invoke('book:getAll'),
     search: (keyword: string): Promise<ApiResponse> => ipcRenderer.invoke('book:search', keyword)

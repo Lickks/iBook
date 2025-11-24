@@ -64,6 +64,17 @@ export async function deleteBook(id: number): Promise<boolean> {
 }
 
 /**
+ * 批量删除书籍
+ */
+export async function deleteBooks(ids: number[]): Promise<boolean> {
+  const response = await window.api.book.deleteBatch(ids)
+  if (response.success) {
+    return true
+  }
+  throw new Error(response.error || '批量删除书籍失败')
+}
+
+/**
  * 搜索书籍
  */
 export async function searchBooks(keyword: string): Promise<Book[]> {

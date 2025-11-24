@@ -7,12 +7,20 @@ const props = withDefaults(
     book: Book
     view?: 'grid' | 'list'
     highlight?: string
+    selectable?: boolean
+    selected?: boolean
   }>(),
   {
     view: 'grid',
-    highlight: ''
+    highlight: '',
+    selectable: false,
+    selected: false
   }
 )
+
+const emit = defineEmits<{
+  (e: 'toggle-select', id: number): void
+}>()
 
 const readingStatusMap: Record<Book['readingStatus'], string> = {
   unread: '未读',
@@ -62,7 +70,16 @@ function coverFallback(title: string): string {
 </script>
 
 <template>
-  <article class="book-card" :class="view">
+  <article class="book-card" :class="[view, { selectable: selectable, selected }]">
+    <button
+      v-if="selectable"
+      class="select-indicator"
+      type="button"
+      :class="{ active: selected }"
+      @click.stop="emit('toggle-select', book.id)"
+    >
+      <span v-if="selected">✔</span>
+    </button>
     <div class="cover">
       <img v-if="book.coverUrl" :src="book.coverUrl" :alt="book.title" loading="lazy" />
       <span v-else>{{ coverFallback(book.title) }}</span>
@@ -118,6 +135,39 @@ function coverFallback(title: string): string {
 .book-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 18px 45px var(--color-card-shadow);
+}
+
+.book-card.selectable {
+  cursor: default;
+}
+
+.select-indicator {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.dark .select-indicator {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.select-indicator.active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
 }
 
 .cover {

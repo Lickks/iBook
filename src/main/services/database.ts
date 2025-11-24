@@ -297,6 +297,20 @@ class DatabaseService {
   }
 
   /**
+   * 批量删除书籍
+   */
+  deleteBooks(ids: number[]): number {
+    if (!ids.length) {
+      return 0
+    }
+    const db = this.getDatabase()
+    const placeholders = ids.map(() => '?').join(',')
+    const stmt = db.prepare(`DELETE FROM books WHERE id IN (${placeholders})`)
+    const result = stmt.run(...ids)
+    return result.changes
+  }
+
+  /**
    * 搜索书籍
    */
   searchBooks(keyword: string): Book[] {

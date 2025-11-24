@@ -10,6 +10,7 @@ declare global {
         create: (input: BookInput) => Promise<ApiResponse>
         update: (id: number, input: Partial<BookInput>) => Promise<ApiResponse>
         delete: (id: number) => Promise<ApiResponse>
+        deleteBatch: (ids: number[]) => Promise<ApiResponse>
         getById: (id: number) => Promise<ApiResponse>
         getAll: () => Promise<ApiResponse>
         search: (keyword: string) => Promise<ApiResponse>

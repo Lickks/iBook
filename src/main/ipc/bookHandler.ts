@@ -70,6 +70,34 @@ export function setupBookHandlers(): void {
   })
 
   /**
+   * 批量删除书籍
+   */
+  ipcMain.handle(
+    'book:deleteBatch',
+    async (_event: IpcMainInvokeEvent, ids: number[] | undefined) => {
+      try {
+        if (!Array.isArray(ids) || ids.length === 0) {
+          return {
+            success: false,
+            error: '请选择要删除的书籍'
+          }
+        }
+        const deleted = databaseService.deleteBooks(ids)
+        return {
+          success: true,
+          data: deleted
+        }
+      } catch (error: any) {
+        console.error('批量删除书籍失败:', error)
+        return {
+          success: false,
+          error: error?.message || '批量删除书籍失败'
+        }
+      }
+    }
+  )
+
+  /**
    * 根据 ID 获取书籍
    */
   ipcMain.handle('book:getById', async (_event: IpcMainInvokeEvent, id: number) => {
