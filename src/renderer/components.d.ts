@@ -11,8 +11,11 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    BookCard: typeof import('./src/components/BookCard.vue')['default']
+    BookForm: typeof import('./src/components/BookForm.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SearchBar: typeof import('./src/components/SearchBar.vue')['default']
     Versions: typeof import('./src/components/Versions.vue')['default']
   }
 }
