@@ -14,18 +14,7 @@ const viewMode = computed(() => uiStore.viewMode)
 const hasBooks = computed(() => bookStore.books.length > 0)
 const filteredBooks = computed(() => bookStore.filteredBooks)
 const highlight = computed(() => bookStore.searchKeyword)
-const selectionMode = ref(false)
-const selectedIds = ref<number[]>([])
-const deletingBatch = ref(false)
-const selectedCount = computed(() => selectedIds.value.length)
-const selectedIdSet = computed(() => new Set(selectedIds.value))
-const allVisibleSelected = computed(() => {
-  const selectedSet = selectedIdSet.value
-  return (
-    filteredBooks.value.length > 0 &&
-    filteredBooks.value.every((book) => selectedSet.has(book.id))
-  )
-})
+
 
 function setViewMode(mode: 'grid' | 'list'): void {
   uiStore.setViewMode(mode)
@@ -35,71 +24,7 @@ function goToAdd(): void {
   router.push('/add')
 }
 
-function toggleSelectionMode(): void {
-  if (selectionMode.value) {
-    cancelSelection()
-  } else {
-    selectionMode.value = true
-  }
-}
 
-function handleToggleSelect(id: number): void {
-  if (!selectionMode.value) {
-    selectionMode.value = true
-  }
-  if (selectedIdSet.value.has(id)) {
-    selectedIds.value = selectedIds.value.filter((item) => item !== id)
-  } else {
-    selectedIds.value = [...selectedIds.value, id]
-  }
-}
-
-function toggleSelectAll(): void {
-  if (allVisibleSelected.value) {
-    selectedIds.value = []
-  } else {
-    selectionMode.value = true
-    selectedIds.value = filteredBooks.value.map((book) => book.id)
-  }
-}
-
-function cancelSelection(): void {
-  selectionMode.value = false
-  selectedIds.value = []
-}
-
-async function handleBatchDelete(): Promise<void> {
-  if (!selectedIds.value.length) {
-    return
-  }
-  const confirmed = window.confirm(`确定删除选中的 ${selectedIds.value.length} 本书籍吗？`)
-  if (!confirmed) {
-    return
-  }
-  deletingBatch.value = true
-  try {
-    await bookStore.deleteBooksBatch(selectedIds.value)
-    cancelSelection()
-  } catch (error) {
-    console.error('批量删除失败', error)
-  } finally {
-    deletingBatch.value = false
-  }
-}
-
-watch(
-  () => bookStore.books,
-  (list) => {
-    const existing = new Set(list.map((book) => book.id))
-    const filteredSelection = selectedIds.value.filter((id) => existing.has(id))
-    if (filteredSelection.length !== selectedIds.value.length) {
-      selectedIds.value = filteredSelection
-    }
-    if (selectionMode.value && selectedIds.value.length === 0 && !deletingBatch.value) {
-      selectionMode.value = false
-    }
-  }
-)
 </script>
 
 <template>
@@ -130,30 +55,10 @@ watch(
         <button class="primary-btn" type="button" @click="goToAdd">
           + 添加书籍
         </button>
-        <button class="ghost-btn" type="button" @click="toggleSelectionMode">
-          {{ selectionMode ? '退出批量' : '批量删除' }}
-        </button>
-      </div>
+        </div>
     </header>
 
-    <div v-if="selectionMode" class="selection-bar">
-      <span>已选 {{ selectedCount }} 本</span>
-      <div class="selection-actions">
-        <button class="ghost-btn" type="button" @click="toggleSelectAll">
-          {{ allVisibleSelected ? '取消全选' : '全选当前列表' }}
-        </button>
-        <button
-          class="danger-btn"
-          type="button"
-          :disabled="deletingBatch || !selectedCount"
-          @click="handleBatchDelete"
-        >
-          {{ deletingBatch ? '删除中...' : '删除所选' }}
-        </button>
-        <button class="ghost-btn" type="button" @click="cancelSelection">取消</button>
-      </div>
-    </div>
-
+  
     <SearchBar />
 
     <div v-if="bookStore.loading" class="state-card">
@@ -176,9 +81,6 @@ watch(
           :book="book"
           :view="viewMode"
           :highlight="highlight"
-          :selectable="selectionMode"
-          :selected="selectedIdSet.has(book.id)"
-          @toggle-select="handleToggleSelect"
         />
       </div>
     </template>
@@ -223,47 +125,6 @@ h2 {
   flex-wrap: wrap;
 }
 
-.selection-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 20px;
-  border: 1px dashed var(--color-border);
-  border-radius: 14px;
-  background: var(--color-surface);
-}
-
-.selection-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.ghost-btn {
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  padding: 8px 18px;
-  background: transparent;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.danger-btn {
-  border: none;
-  border-radius: 999px;
-  padding: 9px 18px;
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--color-danger);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.danger-btn[disabled] {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
 .view-switcher {
   display: inline-flex;

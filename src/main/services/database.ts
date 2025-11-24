@@ -151,7 +151,12 @@ class DatabaseService {
       input.personalRating || null
     )
 
-    return this.getBookById(result.lastInsertRowid as number)!
+    // 确保安全地获取插入的ID，避免可能的序列化问题
+    const insertId = result && typeof result.lastInsertRowid === 'number' ? result.lastInsertRowid : null
+    if (!insertId) {
+      throw new Error('创建书籍失败：无法获取插入的ID')
+    }
+    return this.getBookById(insertId)!
   }
 
   /**
@@ -160,7 +165,7 @@ class DatabaseService {
   getBookById(id: number): Book | null {
     const db = this.getDatabase()
     const stmt = db.prepare(`
-      SELECT 
+      SELECT
         id, title, author, cover_url as coverUrl, platform, category, description,
         word_count_source as wordCountSource,
         word_count_search as wordCountSearch,
@@ -182,7 +187,14 @@ class DatabaseService {
     return {
       ...row,
       readingStatus: row.readingStatus || 'unread',
-      wordCountSource: row.wordCountSource || 'search'
+      wordCountSource: row.wordCountSource || 'search',
+      // 确保日期对象可以被序列化
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null),
+      updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
+        ? row.updatedAt.toISOString()
+        : (row.updatedAt || null)
     }
   }
 
@@ -192,7 +204,7 @@ class DatabaseService {
   getAllBooks(): Book[] {
     const db = this.getDatabase()
     const stmt = db.prepare(`
-      SELECT 
+      SELECT
         id, title, author, cover_url as coverUrl, platform, category, description,
         word_count_source as wordCountSource,
         word_count_search as wordCountSearch,
@@ -212,7 +224,14 @@ class DatabaseService {
     return rows.map((row) => ({
       ...row,
       readingStatus: row.readingStatus || 'unread',
-      wordCountSource: row.wordCountSource || 'search'
+      wordCountSource: row.wordCountSource || 'search',
+      // 确保日期对象可以被序列化
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null),
+      updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
+        ? row.updatedAt.toISOString()
+        : (row.updatedAt || null)
     }))
   }
 
@@ -293,23 +312,12 @@ class DatabaseService {
     const db = this.getDatabase()
     const stmt = db.prepare('DELETE FROM books WHERE id = ?')
     const result = stmt.run(id)
-    return result.changes > 0
+    // 确保只返回基本数据类型，避免可能的序列化问题
+    const changes = result && typeof result.changes === 'number' ? result.changes : 0
+    return changes > 0
   }
 
-  /**
-   * 批量删除书籍
-   */
-  deleteBooks(ids: number[]): number {
-    if (!ids.length) {
-      return 0
-    }
-    const db = this.getDatabase()
-    const placeholders = ids.map(() => '?').join(',')
-    const stmt = db.prepare(`DELETE FROM books WHERE id IN (${placeholders})`)
-    const result = stmt.run(...ids)
-    return result.changes
-  }
-
+  
   /**
    * 搜索书籍
    */
@@ -317,7 +325,7 @@ class DatabaseService {
     const db = this.getDatabase()
     const searchTerm = `%${keyword}%`
     const stmt = db.prepare(`
-      SELECT 
+      SELECT
         id, title, author, cover_url as coverUrl, platform, category, description,
         word_count_source as wordCountSource,
         word_count_search as wordCountSearch,
@@ -338,7 +346,14 @@ class DatabaseService {
     return rows.map((row) => ({
       ...row,
       readingStatus: row.readingStatus || 'unread',
-      wordCountSource: row.wordCountSource || 'search'
+      wordCountSource: row.wordCountSource || 'search',
+      // 确保日期对象可以被序列化
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null),
+      updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
+        ? row.updatedAt.toISOString()
+        : (row.updatedAt || null)
     }))
   }
 
@@ -365,7 +380,12 @@ class DatabaseService {
       input.wordCount || null
     )
 
-    return this.getDocumentById(result.lastInsertRowid as number)!
+    // 确保安全地获取插入的ID，避免可能的序列化问题
+    const insertId = result && typeof result.lastInsertRowid === 'number' ? result.lastInsertRowid : null
+    if (!insertId) {
+      throw new Error('创建文档失败：无法获取插入的ID')
+    }
+    return this.getDocumentById(insertId)!
   }
 
   /**
@@ -374,7 +394,7 @@ class DatabaseService {
   getDocumentById(id: number): Document | null {
     const db = this.getDatabase()
     const stmt = db.prepare(`
-      SELECT 
+      SELECT
         id, book_id as bookId, file_name as fileName, file_path as filePath,
         file_type as fileType, file_size as fileSize, word_count as wordCount,
         uploaded_at as uploadedAt
@@ -383,7 +403,15 @@ class DatabaseService {
     `)
 
     const row = stmt.get(id) as any
-    return row || null
+    if (!row) return null
+
+    return {
+      ...row,
+      // 确保日期对象可以被序列化
+      uploadedAt: row.uploadedAt && typeof row.uploadedAt === 'object' && row.uploadedAt instanceof Date
+        ? row.uploadedAt.toISOString()
+        : (row.uploadedAt || null)
+    }
   }
 
   /**
@@ -392,7 +420,7 @@ class DatabaseService {
   getDocumentsByBookId(bookId: number): Document[] {
     const db = this.getDatabase()
     const stmt = db.prepare(`
-      SELECT 
+      SELECT
         id, book_id as bookId, file_name as fileName, file_path as filePath,
         file_type as fileType, file_size as fileSize, word_count as wordCount,
         uploaded_at as uploadedAt
@@ -401,7 +429,14 @@ class DatabaseService {
       ORDER BY uploaded_at DESC
     `)
 
-    return stmt.all(bookId) as Document[]
+    const rows = stmt.all(bookId) as any[]
+    return rows.map((row) => ({
+      ...row,
+      // 确保日期对象可以被序列化
+      uploadedAt: row.uploadedAt && typeof row.uploadedAt === 'object' && row.uploadedAt instanceof Date
+        ? row.uploadedAt.toISOString()
+        : (row.uploadedAt || null)
+    }))
   }
 
   /**
@@ -452,7 +487,9 @@ class DatabaseService {
     const db = this.getDatabase()
     const stmt = db.prepare('DELETE FROM documents WHERE id = ?')
     const result = stmt.run(id)
-    return result.changes > 0
+    // 确保只返回基本数据类型，避免可能的序列化问题
+    const changes = result && typeof result.changes === 'number' ? result.changes : 0
+    return changes > 0
   }
 
   // ============================================
@@ -471,7 +508,12 @@ class DatabaseService {
 
     const result = stmt.run(input.bookId, input.noteType, input.content)
 
-    return this.getNoteById(result.lastInsertRowid as number)!
+    // 确保安全地获取插入的ID，避免可能的序列化问题
+    const insertId = result && typeof result.lastInsertRowid === 'number' ? result.lastInsertRowid : null
+    if (!insertId) {
+      throw new Error('创建笔记失败：无法获取插入的ID')
+    }
+    return this.getNoteById(insertId)!
   }
 
   /**
@@ -480,7 +522,7 @@ class DatabaseService {
   getNoteById(id: number): Note | null {
     const db = this.getDatabase()
     const stmt = db.prepare(`
-      SELECT 
+      SELECT
         id, book_id as bookId, note_type as noteType, content,
         created_at as createdAt
       FROM notes
@@ -488,7 +530,15 @@ class DatabaseService {
     `)
 
     const row = stmt.get(id) as any
-    return row || null
+    if (!row) return null
+
+    return {
+      ...row,
+      // 确保日期对象可以被序列化
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null)
+    }
   }
 
   /**
@@ -497,7 +547,7 @@ class DatabaseService {
   getNotesByBookId(bookId: number): Note[] {
     const db = this.getDatabase()
     const stmt = db.prepare(`
-      SELECT 
+      SELECT
         id, book_id as bookId, note_type as noteType, content,
         created_at as createdAt
       FROM notes
@@ -505,7 +555,14 @@ class DatabaseService {
       ORDER BY created_at DESC
     `)
 
-    return stmt.all(bookId) as Note[]
+    const rows = stmt.all(bookId) as any[]
+    return rows.map((row) => ({
+      ...row,
+      // 确保日期对象可以被序列化
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null)
+    }))
   }
 
   /**
@@ -544,7 +601,9 @@ class DatabaseService {
     const db = this.getDatabase()
     const stmt = db.prepare('DELETE FROM notes WHERE id = ?')
     const result = stmt.run(id)
-    return result.changes > 0
+    // 确保只返回基本数据类型，避免可能的序列化问题
+    const changes = result && typeof result.changes === 'number' ? result.changes : 0
+    return changes > 0
   }
 
   // ============================================
@@ -563,7 +622,12 @@ class DatabaseService {
 
     const result = stmt.run(input.tagName, input.color || null)
 
-    return this.getTagById(result.lastInsertRowid as number)!
+    // 确保安全地获取插入的ID，避免可能的序列化问题
+    const insertId = result && typeof result.lastInsertRowid === 'number' ? result.lastInsertRowid : null
+    if (!insertId) {
+      throw new Error('创建标签失败：无法获取插入的ID')
+    }
+    return this.getTagById(insertId)!
   }
 
   /**
@@ -572,14 +636,22 @@ class DatabaseService {
   getTagById(id: number): Tag | null {
     const db = this.getDatabase()
     const stmt = db.prepare(`
-      SELECT 
+      SELECT
         id, tag_name as tagName, color, created_at as createdAt
       FROM tags
       WHERE id = ?
     `)
 
     const row = stmt.get(id) as any
-    return row || null
+    if (!row) return null
+
+    return {
+      ...row,
+      // 确保日期对象可以被序列化
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null)
+    }
   }
 
   /**
@@ -588,13 +660,20 @@ class DatabaseService {
   getAllTags(): Tag[] {
     const db = this.getDatabase()
     const stmt = db.prepare(`
-      SELECT 
+      SELECT
         id, tag_name as tagName, color, created_at as createdAt
       FROM tags
       ORDER BY created_at DESC
     `)
 
-    return stmt.all() as Tag[]
+    const rows = stmt.all() as any[]
+    return rows.map((row) => ({
+      ...row,
+      // 确保日期对象可以被序列化
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null)
+    }))
   }
 
   /**
@@ -603,14 +682,22 @@ class DatabaseService {
   getTagByName(tagName: string): Tag | null {
     const db = this.getDatabase()
     const stmt = db.prepare(`
-      SELECT 
+      SELECT
         id, tag_name as tagName, color, created_at as createdAt
       FROM tags
       WHERE tag_name = ?
     `)
 
     const row = stmt.get(tagName) as any
-    return row || null
+    if (!row) return null
+
+    return {
+      ...row,
+      // 确保日期对象可以被序列化
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null)
+    }
   }
 
   /**
@@ -649,7 +736,9 @@ class DatabaseService {
     const db = this.getDatabase()
     const stmt = db.prepare('DELETE FROM tags WHERE id = ?')
     const result = stmt.run(id)
-    return result.changes > 0
+    // 确保只返回基本数据类型，避免可能的序列化问题
+    const changes = result && typeof result.changes === 'number' ? result.changes : 0
+    return changes > 0
   }
 
   /**
@@ -662,7 +751,9 @@ class DatabaseService {
       VALUES (?, ?)
     `)
     const result = stmt.run(bookId, tagId)
-    return result.changes > 0
+    // 确保只返回基本数据类型，避免可能的序列化问题
+    const changes = result && typeof result.changes === 'number' ? result.changes : 0
+    return changes > 0
   }
 
   /**
@@ -675,7 +766,9 @@ class DatabaseService {
       WHERE book_id = ? AND tag_id = ?
     `)
     const result = stmt.run(bookId, tagId)
-    return result.changes > 0
+    // 确保只返回基本数据类型，避免可能的序列化问题
+    const changes = result && typeof result.changes === 'number' ? result.changes : 0
+    return changes > 0
   }
 
   /**
@@ -684,7 +777,7 @@ class DatabaseService {
   getTagsByBookId(bookId: number): Tag[] {
     const db = this.getDatabase()
     const stmt = db.prepare(`
-      SELECT 
+      SELECT
         t.id, t.tag_name as tagName, t.color, t.created_at as createdAt
       FROM tags t
       INNER JOIN book_tags bt ON t.id = bt.tag_id
@@ -692,7 +785,14 @@ class DatabaseService {
       ORDER BY t.created_at DESC
     `)
 
-    return stmt.all(bookId) as Tag[]
+    const rows = stmt.all(bookId) as any[]
+    return rows.map((row) => ({
+      ...row,
+      // 确保日期对象可以被序列化
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null)
+    }))
   }
 
   // ============================================
@@ -720,8 +820,11 @@ class DatabaseService {
       input.bookId
     )
 
+    // 确保安全地获取受影响的行数，避免可能的序列化问题
+    const changes = updateResult && typeof updateResult.changes === 'number' ? updateResult.changes : 0
+
     // 如果没有更新任何行，则插入
-    if (updateResult.changes === 0) {
+    if (changes === 0) {
       const insertStmt = db.prepare(`
         INSERT INTO reading_progress (book_id, current_chapter, current_page, progress_percentage, last_read_at)
         VALUES (?, ?, ?, ?, ?)
@@ -745,7 +848,7 @@ class DatabaseService {
   getReadingProgressByBookId(bookId: number): ReadingProgress | null {
     const db = this.getDatabase()
     const stmt = db.prepare(`
-      SELECT 
+      SELECT
         id, book_id as bookId, current_chapter as currentChapter,
         current_page as currentPage, progress_percentage as progressPercentage,
         last_read_at as lastReadAt
@@ -754,7 +857,15 @@ class DatabaseService {
     `)
 
     const row = stmt.get(bookId) as any
-    return row || null
+    if (!row) return null
+
+    return {
+      ...row,
+      // 确保日期对象可以被序列化
+      lastReadAt: row.lastReadAt && typeof row.lastReadAt === 'object' && row.lastReadAt instanceof Date
+        ? row.lastReadAt.toISOString()
+        : (row.lastReadAt || null)
+    }
   }
 
   /**
@@ -764,7 +875,9 @@ class DatabaseService {
     const db = this.getDatabase()
     const stmt = db.prepare('DELETE FROM reading_progress WHERE book_id = ?')
     const result = stmt.run(bookId)
-    return result.changes > 0
+    // 确保只返回基本数据类型，避免可能的序列化问题
+    const changes = result && typeof result.changes === 'number' ? result.changes : 0
+    return changes > 0
   }
 }
 

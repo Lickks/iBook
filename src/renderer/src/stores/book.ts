@@ -149,29 +149,7 @@ export const useBookStore = defineStore('book', () => {
     }
   }
 
-  /**
-   * 批量删除书籍
-   */
-  async function deleteBooksBatch(ids: number[]): Promise<void> {
-    if (!ids.length) {
-      return
-    }
-    loading.value = true
-    try {
-      await bookAPI.deleteBooks(ids)
-      const idSet = new Set(ids)
-      books.value = books.value.filter((b) => !idSet.has(b.id))
-      if (currentBook.value && idSet.has(currentBook.value.id)) {
-        currentBook.value = null
-      }
-    } catch (error: any) {
-      console.error('批量删除书籍失败:', error)
-      throw error
-    } finally {
-      loading.value = false
-    }
-  }
-
+  
   /**
    * 搜索书籍
    */
@@ -230,7 +208,6 @@ export const useBookStore = defineStore('book', () => {
     createBook,
     updateBook,
     deleteBook,
-    deleteBooksBatch,
     searchBooks,
     setSearchKeyword,
     clearSearch,
