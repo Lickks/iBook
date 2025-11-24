@@ -13,6 +13,9 @@ declare module 'vue' {
   export interface GlobalComponents {
     BookCard: typeof import('./src/components/BookCard.vue')['default']
     BookForm: typeof import('./src/components/BookForm.vue')['default']
+    ElCheckbox: typeof import('element-plus/es')['ElCheckbox']
+    ElOption: typeof import('element-plus/es')['ElOption']
+    ElSelect: typeof import('element-plus/es')['ElSelect']
     NetworkSearch: typeof import('./src/components/NetworkSearch.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

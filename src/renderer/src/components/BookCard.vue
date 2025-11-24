@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useBookStore } from '../stores/book'
 import { READING_STATUS_LABEL } from '../constants'
@@ -27,6 +27,7 @@ const emit = defineEmits<{
 }>()
 
 const bookStore = useBookStore()
+const router = useRouter()
 const showStatusDropdown = ref(false)
 
 const readingStatusMap: Record<Book['readingStatus'], string> = {
@@ -75,6 +76,19 @@ function coverFallback(title: string): string {
   return title.slice(0, 1).toUpperCase()
 }
 
+// 处理卡片点击
+function handleCardClick(event: MouseEvent): void {
+  if (props.selectable) {
+    // 选择模式下：选择/取消选择书籍
+    event.preventDefault()
+    event.stopPropagation()
+    emit('toggle-select', props.book.id)
+  } else {
+    // 非选择模式下：进入详情页
+    router.push(`/book/${props.book.id}`)
+  }
+}
+
 async function updateReadingStatus(status: string): Promise<void> {
   try {
     await bookStore.updateBook(props.book.id, { readingStatus: status })
@@ -100,6 +114,13 @@ function handleStatusSelect(status: string, event: MouseEvent): void {
   } else {
     showStatusDropdown.value = false
   }
+}
+
+// 处理选择指示器点击，阻止卡片点击事件
+function handleSelectIndicatorClick(event: MouseEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  emit('toggle-select', props.book.id)
 }
 
 // 获取状态颜色
@@ -132,13 +153,17 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <article class="book-card" :class="[view, { selectable: selectable, selected, 'status-dropdown-open': showStatusDropdown }]">
+  <article
+    class="book-card"
+    :class="[view, { selectable: selectable, selected, 'status-dropdown-open': showStatusDropdown }]"
+    @click="handleCardClick"
+  >
     <button
       v-if="selectable"
       class="select-indicator"
       type="button"
       :class="{ active: selected }"
-      @click.stop="emit('toggle-select', book.id)"
+      @click="handleSelectIndicatorClick"
     >
       <span v-if="selected">✔</span>
     </button>
@@ -148,7 +173,7 @@ onUnmounted(() => {
     </div>
 
     <div class="info">
-      <RouterLink class="title" :to="`/book/${book.id}`" v-html="highlightText(book.title)" />
+      <span class="title" v-html="highlightText(book.title)" />
       <p class="meta">
         <span v-html="highlightText(book.author || '未知作者')" />
         <span class="dot">•</span>
@@ -223,8 +248,22 @@ onUnmounted(() => {
   box-shadow: 0 18px 45px var(--color-card-shadow);
 }
 
+.book-card:not(.selectable) {
+  cursor: pointer;
+}
+
 .book-card.selectable {
-  cursor: default;
+  cursor: pointer;
+}
+
+.book-card.selectable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px var(--color-card-shadow);
+}
+
+.book-card.selectable.selected {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-soft), 0 12px 30px var(--color-card-shadow);
 }
 
 .select-indicator {
@@ -288,6 +327,8 @@ onUnmounted(() => {
   font-size: 18px;
   font-weight: 600;
   color: var(--color-text-primary);
+  cursor: inherit;
+  text-decoration: none;
 }
 
 .meta {
