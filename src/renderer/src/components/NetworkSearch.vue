@@ -93,7 +93,7 @@ function handleCoverError(result: SearchResult): void {
 
     <div v-else class="results-list">
       <article
-        v-for="result in results"
+        v-for="(result, index) in results"
         :key="result.sourceUrl || result.title"
         class="result-card"
       >
@@ -102,7 +102,7 @@ function handleCoverError(result: SearchResult): void {
             v-if="result.cover"
             :src="result.cover"
             :alt="result.title"
-            loading="lazy"
+            :loading="index < 3 ? 'eager' : 'lazy'"
             @error="handleCoverError(result)"
           />
           <span v-else>{{ result.title.slice(0, 1).toUpperCase() }}</span>
