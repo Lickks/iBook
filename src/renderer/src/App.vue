@@ -68,6 +68,15 @@ onMounted(() => {
         </button>
       </div>
     </aside>
+    <button
+      v-if="uiStore.sidebarCollapsed"
+      class="sidebar-toggle"
+      type="button"
+      @click="uiStore.toggleSidebar"
+    >
+      <span class="icon">☰</span>
+      <span>展开菜单</span>
+    </button>
 
     <div class="workspace">
       <header class="topbar">
@@ -96,6 +105,7 @@ onMounted(() => {
   display: flex;
   min-height: 100vh;
   background: linear-gradient(180deg, var(--color-bg) 0%, var(--color-bg-soft) 100%);
+  position: relative;
 }
 
 .sidebar {
@@ -189,6 +199,34 @@ onMounted(() => {
   margin-top: auto;
 }
 
+.sidebar-toggle {
+  position: fixed;
+  top: 24px;
+  left: 16px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.sidebar-toggle:hover {
+  background: var(--color-accent-strong);
+  transform: translateY(-1px);
+}
+
+.sidebar-toggle .icon {
+  font-size: 16px;
+}
+
 .workspace {
   flex: 1;
   display: flex;
@@ -255,6 +293,10 @@ onMounted(() => {
 
   .mobile-only {
     display: inline-flex;
+  }
+
+  .sidebar-toggle {
+    display: none;
   }
 
   .view-wrapper {
