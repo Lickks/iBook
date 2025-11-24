@@ -19,6 +19,10 @@ class SpiderService {
   private readonly maxResults = 20
   private readonly requestTimeouts = [10000, 15000, 20000]
   private readonly retryDelay = 500
+  private readonly detailLabelMap: Record<'category' | 'platform', string[]> = {
+    category: ['作品分类', '作品类别', '小说分类', '小说类别', '作品类型', '小说类型'],
+    platform: ['首发网站', '首发站点', '首发平台', '首发网站', '首发站点', '授权级别']
+  }
 
   constructor() {
     this.client = axios.create({
@@ -51,16 +55,20 @@ class SpiderService {
       const $ = cheerio.load(html)
 
       const results: SearchResult[] = []
-      $('.c_row').each((_idx, element) => {
+      const rows = $('.c_row').toArray()
+      for (const element of rows) {
         const row = $(element)
         const title = row.find('.c_subject a').first().text().replace(/\s+/g, ' ').trim()
-        if (!title) return
+        if (!title) continue
 
         const link = row.find('.c_subject a').first().attr('href') ?? ''
         const coverSrc = row.find('.fl img').attr('src') ?? ''
         const description = row.find('.c_description').text().replace(/\s+/g, ' ').trim()
 
         const meta = this.extractMeta(row, $)
+        if ((!meta.platform || !meta.category) && link) {
+          await this.enrichMetaFromDetail(link, meta)
+        }
 
         const normalizedCover = this.normalizeUrl(coverSrc)
 
@@ -69,11 +77,12 @@ class SpiderService {
           author: meta.author || '未知作者',
           cover: this.toProxyImageUrl(normalizedCover),
           platform: meta.platform || '未知平台',
+          category: meta.category || '',
           wordCount: meta.wordCount,
           description: description || '暂无简介',
           sourceUrl: this.normalizeUrl(link)
         })
-      })
+      }
 
       return results.slice(0, this.maxResults)
     } catch (error: unknown) {
@@ -125,11 +134,13 @@ class SpiderService {
   ): {
     author: string
     platform: string
+    category: string
     wordCount: number
   } {
     const meta = {
       author: '',
       platform: '',
+      category: '',
       wordCount: 0
     }
 
@@ -149,6 +160,10 @@ class SpiderService {
                 break
               case '类别':
               case '分类':
+              case '类型':
+              case '题材':
+                meta.category = value
+                break
               case '来源':
               case '平台':
                 meta.platform = value
@@ -164,6 +179,97 @@ class SpiderService {
     })
 
     return meta
+  }
+
+  private async enrichMetaFromDetail(
+    link: string,
+    meta: {
+      author: string
+      platform: string
+      category: string
+      wordCount: number
+    }
+  ): Promise<void> {
+    const detailUrl = this.normalizeUrl(link)
+    if (!detailUrl) {
+      return
+    }
+
+    try {
+      const response = await this.requestWithRetry(detailUrl)
+      const buffer = Buffer.from(response.data)
+      const html = this.decodeHtml(buffer, response.headers)
+      const detailMeta = this.extractDetailMeta(html)
+      if (!meta.category && detailMeta.category) {
+        meta.category = detailMeta.category
+      }
+      if (!meta.platform && detailMeta.platform) {
+        meta.platform = detailMeta.platform
+      }
+    } catch (error) {
+      console.warn('作品详情解析失败，使用基础信息', error)
+    }
+  }
+
+  private extractDetailMeta(html: string): Partial<{
+    category: string
+    platform: string
+  }> {
+    const $ = cheerio.load(html)
+    const detailMeta: Partial<{ category: string; platform: string }> = {}
+    const selectors = [
+      '.bookinfo li',
+      '.workinfo li',
+      '.book-information li',
+      '.book-info li',
+      '.bookinfo p',
+      '.workinfo p'
+    ]
+
+    for (const selector of selectors) {
+      $(selector).each((_idx, el) => {
+        const text = $(el).text().replace(/\s+/g, ' ').trim()
+        this.assignDetailValue(text, detailMeta)
+      })
+      if (detailMeta.category && detailMeta.platform) {
+        break
+      }
+    }
+
+    if (!detailMeta.category || !detailMeta.platform) {
+      const bodyText = $.root().text().replace(/\s+/g, ' ').trim()
+      this.assignDetailValue(bodyText, detailMeta)
+    }
+
+    return detailMeta
+  }
+
+  private assignDetailValue(
+    text: string,
+    meta: Partial<{ category: string; platform: string }>
+  ): void {
+    const normalized = text.replace(/\s+/g, ' ').trim()
+    const mappings = Object.entries(this.detailLabelMap) as Array<
+      [keyof typeof this.detailLabelMap, string[]]
+    >
+
+    for (const [key, labels] of mappings) {
+      if ((key === 'category' && meta.category) || (key === 'platform' && meta.platform)) {
+        continue
+      }
+      for (const label of labels) {
+        const regex = new RegExp(`${label}[：:]\\s*([^\\s，。；;|]+)`, 'i')
+        const match = regex.exec(normalized)
+        if (match?.[1]) {
+          if (key === 'category') {
+            meta.category = match[1].trim()
+          } else {
+            meta.platform = match[1].trim()
+          }
+          break
+        }
+      }
+    }
   }
 
   /**

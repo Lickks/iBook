@@ -54,6 +54,7 @@ export interface SearchResult {
   author: string
   cover: string
   platform: string
+  category?: string
   wordCount: number
   description: string
   sourceUrl: string

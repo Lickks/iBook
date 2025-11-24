@@ -55,6 +55,7 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
       author: result.author,
       coverUrl,
       platform: result.platform,
+      category: result.category,
       description: result.description,
       wordCountDisplay: result.wordCount || undefined,
       sourceUrl: result.sourceUrl,
