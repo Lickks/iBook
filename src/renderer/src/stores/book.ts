@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { READING_STATUS } from '../constants'
 import type { Book, BookInput } from '../types'
 import * as bookAPI from '../api/book'
 
@@ -12,19 +13,29 @@ export const useBookStore = defineStore('book', () => {
   const currentBook = ref<Book | null>(null)
   const loading = ref(false)
   const searchKeyword = ref('')
+  const selectedStatus = ref<string | null>(null)
 
   // Getters
   const filteredBooks = computed(() => {
-    if (!searchKeyword.value.trim()) {
-      return books.value
+    let result = books.value
+
+    // 按搜索关键词筛选
+    if (searchKeyword.value.trim()) {
+      const keyword = searchKeyword.value.toLowerCase()
+      result = result.filter(
+        (book) =>
+          book.title.toLowerCase().includes(keyword) ||
+          book.author?.toLowerCase().includes(keyword) ||
+          book.description?.toLowerCase().includes(keyword)
+      )
     }
-    const keyword = searchKeyword.value.toLowerCase()
-    return books.value.filter(
-      (book) =>
-        book.title.toLowerCase().includes(keyword) ||
-        book.author?.toLowerCase().includes(keyword) ||
-        book.description?.toLowerCase().includes(keyword)
-    )
+
+    // 按阅读状态筛选
+    if (selectedStatus.value) {
+      result = result.filter(book => book.readingStatus === selectedStatus.value)
+    }
+
+    return result
   })
 
   const totalWordCount = computed(() => {
@@ -48,6 +59,32 @@ export const useBookStore = defineStore('book', () => {
       }
     })
     return statusMap
+  })
+
+  // 状态统计
+  const statusStats = computed(() => {
+    const stats = {
+      all: books.value.length,
+      [READING_STATUS.UNREAD]: 0,
+      [READING_STATUS.READING]: 0,
+      [READING_STATUS.FINISHED]: 0,
+      [READING_STATUS.DROPPED]: 0,
+      [READING_STATUS.TO_READ]: 0
+    }
+
+    books.value.forEach(book => {
+      const status = book.readingStatus || READING_STATUS.UNREAD
+      if (status in stats) {
+        stats[status as keyof typeof stats]++
+      }
+    })
+
+    return stats
+  })
+
+  // 检查是否有筛选条件
+  const hasActiveFilters = computed(() => {
+    return searchKeyword.value.trim() !== '' || selectedStatus.value !== null
   })
 
   // Actions
@@ -192,16 +229,64 @@ export const useBookStore = defineStore('book', () => {
     currentBook.value = book
   }
 
+  /**
+   * 设置筛选状态
+   */
+  function setSelectedStatus(status: string | null): void {
+    selectedStatus.value = status
+  }
+
+  /**
+   * 清空所有筛选条件
+   */
+  function clearAllFilters(): void {
+    searchKeyword.value = ''
+    selectedStatus.value = null
+    fetchBooks()
+  }
+
+  /**
+   * 批量更新书籍状态
+   */
+  async function batchUpdateStatus(bookIds: number[], status: string): Promise<void> {
+    loading.value = true
+    try {
+      const updatePromises = bookIds.map(id =>
+        bookAPI.updateBook(id, { reading_status: status })
+      )
+
+      const updatedBooks = await Promise.all(updatePromises)
+
+      // 更新本地状态
+      updatedBooks.forEach(book => {
+        const index = books.value.findIndex(b => b.id === book.id)
+        if (index !== -1) {
+          books.value[index] = book
+        }
+      })
+
+      return updatedBooks
+    } catch (error: any) {
+      console.error('批量更新状态失败:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     // State
     books,
     currentBook,
     loading,
     searchKeyword,
+    selectedStatus,
     // Getters
     filteredBooks,
     totalWordCount,
     booksByStatus,
+    statusStats,
+    hasActiveFilters,
     // Actions
     fetchBooks,
     fetchBookById,
@@ -211,7 +296,10 @@ export const useBookStore = defineStore('book', () => {
     searchBooks,
     setSearchKeyword,
     clearSearch,
-    setCurrentBook
+    setCurrentBook,
+    setSelectedStatus,
+    clearAllFilters,
+    batchUpdateStatus
   }
 })
 

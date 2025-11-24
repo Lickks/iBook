@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { useBookStore } from '../stores/book'
+import { READING_STATUS, READING_STATUS_LABEL } from '../constants'
 import type { Book } from '../types'
 
 const props = withDefaults(
@@ -21,6 +25,9 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'toggle-select', id: number): void
 }>()
+
+const bookStore = useBookStore()
+const showStatusDropdown = ref(false)
 
 const readingStatusMap: Record<Book['readingStatus'], string> = {
   unread: '未读',
@@ -67,6 +74,61 @@ function formatWordCount(count?: number | null): string {
 function coverFallback(title: string): string {
   return title.slice(0, 1).toUpperCase()
 }
+
+async function updateReadingStatus(status: string): Promise<void> {
+  try {
+    await bookStore.updateBook(props.book.id, { reading_status: status })
+    ElMessage.success(`状态已更新为：${READING_STATUS_LABEL[status as keyof typeof READING_STATUS_LABEL]}`)
+    showStatusDropdown.value = false
+  } catch (error: any) {
+    ElMessage.error('更新状态失败')
+    console.error('更新阅读状态失败:', error)
+  }
+}
+
+function handleStatusClick(event: MouseEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  showStatusDropdown.value = !showStatusDropdown.value
+}
+
+function handleStatusSelect(status: string, event: MouseEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  if (status !== props.book.readingStatus) {
+    updateReadingStatus(status)
+  } else {
+    showStatusDropdown.value = false
+  }
+}
+
+// 获取状态颜色
+function getStatusColor(status: string): string {
+  const colorMap: Record<string, string> = {
+    unread: '#909399',
+    reading: '#409EFF',
+    finished: '#67C23A',
+    dropped: '#F56C6C',
+    'to-read': '#E6A23C'
+  }
+  return colorMap[status] || '#909399'
+}
+
+// 处理点击外部关闭下拉菜单
+function handleClickOutside(event: MouseEvent): void {
+  const target = event.target as Element
+  if (!target.closest('.status-wrapper')) {
+    showStatusDropdown.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <template>
@@ -102,8 +164,32 @@ function coverFallback(title: string): string {
       </div>
     </div>
 
-    <div class="status">
-      <span class="badge">{{ readingStatusMap[book.readingStatus] }}</span>
+    <div class="status" @click="outsideClick">
+      <div class="status-wrapper">
+        <span
+          class="badge clickable"
+          :style="{ backgroundColor: getStatusColor(book.readingStatus) }"
+          @click="handleStatusClick"
+        >
+          {{ readingStatusMap[book.readingStatus] }}
+          <span class="arrow">▼</span>
+        </span>
+
+        <div v-if="showStatusDropdown" class="status-dropdown">
+          <div
+            v-for="(label, key) in READING_STATUS_LABEL"
+            :key="key"
+            class="status-option"
+            :class="{ active: key === book.readingStatus }"
+            :style="{ borderLeftColor: getStatusColor(key) }"
+            @click="handleStatusSelect(key, $event)"
+          >
+            <span class="status-indicator" :style="{ backgroundColor: getStatusColor(key) }"></span>
+            {{ label }}
+            <span v-if="key === book.readingStatus" class="check">✓</span>
+          </div>
+        </div>
+      </div>
     </div>
   </article>
 </template>
@@ -233,15 +319,97 @@ function coverFallback(title: string): string {
 
 .status {
   align-self: flex-start;
+  position: relative;
+}
+
+.status-wrapper {
+  position: relative;
 }
 
 .badge {
   padding: 6px 12px;
   border-radius: 999px;
   background: var(--color-accent-soft);
-  color: var(--color-accent);
+  color: #fff;
   font-size: 12px;
   font-weight: 600;
+  user-select: none;
+}
+
+.badge.clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  padding-right: 24px;
+}
+
+.badge.clickable:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+.arrow {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.status-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 140px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.dark .status-dropdown {
+  background: var(--color-bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.status-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-left: 3px solid transparent;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  position: relative;
+}
+
+.status-option:hover {
+  background: var(--color-bg-soft);
+}
+
+.status-option.active {
+  background: var(--color-accent-soft);
+  font-weight: 600;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.check {
+  margin-left: auto;
+  color: var(--color-accent);
+  font-weight: 600;
+  font-size: 12px;
 }
 
 mark {

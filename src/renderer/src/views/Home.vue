@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import { useUIStore } from '../stores/ui'
 import SearchBar from '../components/SearchBar.vue'
+import StatusFilter from '../components/StatusFilter.vue'
+import StatusStats from '../components/StatusStats.vue'
 import BookCard from '../components/BookCard.vue'
 
 const bookStore = useBookStore()
@@ -14,6 +16,12 @@ const viewMode = computed(() => uiStore.viewMode)
 const hasBooks = computed(() => bookStore.books.length > 0)
 const filteredBooks = computed(() => bookStore.filteredBooks)
 const highlight = computed(() => bookStore.searchKeyword)
+const selectedStatus = computed({
+  get: () => bookStore.selectedStatus,
+  set: (value) => bookStore.setSelectedStatus(value)
+})
+const statusStats = computed(() => bookStore.statusStats)
+const hasActiveFilters = computed(() => bookStore.hasActiveFilters)
 
 
 function setViewMode(mode: 'grid' | 'list'): void {
@@ -22,6 +30,14 @@ function setViewMode(mode: 'grid' | 'list'): void {
 
 function goToAdd(): void {
   router.push('/add')
+}
+
+function handleStatusClick(status: string | null): void {
+  selectedStatus.value = status
+}
+
+function clearFilters(): void {
+  bookStore.clearAllFilters()
 }
 
 
@@ -58,8 +74,30 @@ function goToAdd(): void {
         </div>
     </header>
 
-  
-    <SearchBar />
+    <!-- 状态统计 -->
+    <StatusStats
+      :books="bookStore.books"
+      :selected-status="selectedStatus"
+      @status-click="handleStatusClick"
+    />
+
+    <!-- 搜索栏和状态筛选器 -->
+    <div class="search-filter-section">
+      <SearchBar />
+      <StatusFilter
+        v-model="selectedStatus"
+        placeholder="筛选状态"
+        style="margin-left: 12px;"
+      />
+      <button
+        v-if="hasActiveFilters"
+        class="clear-filters-btn"
+        type="button"
+        @click="clearFilters"
+      >
+        清空筛选
+      </button>
+    </div>
 
     <div v-if="bookStore.loading" class="state-card">
       <div class="loader" />
@@ -72,7 +110,13 @@ function goToAdd(): void {
 
     <template v-else>
       <div v-if="!filteredBooks.length" class="state-card">
-        未找到匹配的书籍，尝试调整搜索关键词。
+        <div v-if="hasActiveFilters">
+          <p>没有符合筛选条件的书籍。</p>
+          <button class="link-btn" type="button" @click="clearFilters">
+            清空筛选条件
+          </button>
+        </div>
+        <p v-else>未找到匹配的书籍，尝试调整搜索关键词。</p>
       </div>
       <div v-else :class="['book-collection', viewMode]">
         <BookCard
@@ -157,6 +201,45 @@ h2 {
   padding: 10px 22px;
   cursor: pointer;
   font-weight: 600;
+}
+
+.search-filter-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.clear-filters-btn {
+  background: var(--color-bg-soft);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-filters-btn:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.link-btn {
+  background: none;
+  color: var(--color-accent);
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: underline;
+  margin-top: 8px;
+}
+
+.link-btn:hover {
+  text-decoration: none;
 }
 
 .state-card {
