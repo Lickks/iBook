@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { BookInput, DocumentInput, SearchResult } from '../renderer/src/types/book'
+import type { BookInput, DocumentInput, SearchDetail, SearchResult } from '../renderer/src/types/book'
 import type { ApiResponse } from '../renderer/src/types/api'
 
 // Custom APIs for renderer
@@ -34,6 +34,8 @@ const api = {
   search: {
     youshu: (keyword: string): Promise<ApiResponse<SearchResult[]>> =>
       ipcRenderer.invoke('search:youshu', keyword),
+    detail: (sourceUrl: string): Promise<ApiResponse<SearchDetail>> =>
+      ipcRenderer.invoke('search:youshuDetail', sourceUrl),
     downloadCover: (url: string, title?: string): Promise<ApiResponse<string>> =>
       ipcRenderer.invoke('search:downloadCover', { url, title })
   }

@@ -5,7 +5,7 @@ import { useBookStore } from '../stores/book'
 import BookForm from '../components/BookForm.vue'
 import NetworkSearch from '../components/NetworkSearch.vue'
 import type { BookInput, SearchResult } from '../types'
-import { downloadCover } from '../api/search'
+import { downloadCover, fetchYoushuDetail } from '../api/search'
 
 const bookStore = useBookStore()
 const router = useRouter()
@@ -42,6 +42,8 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
   try {
     importing.value = true
     let coverUrl = result.cover
+    let platform = result.platform
+    let category = result.category
     if (result.cover) {
       try {
         coverUrl = await downloadCover(result.cover, result.title)
@@ -50,12 +52,22 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
       }
     }
 
+    if ((!platform || platform === '未知平台') && result.sourceUrl) {
+      try {
+        const detail = await fetchYoushuDetail(result.sourceUrl)
+        platform = detail.platform || platform
+        category = category || detail.category
+      } catch (detailError) {
+        console.warn('获取作品平台信息失败，保留默认值', detailError)
+      }
+    }
+
     formInitialValue.value = {
       title: result.title,
       author: result.author,
       coverUrl,
-      platform: result.platform,
-      category: result.category,
+      platform,
+      category,
       description: result.description,
       wordCountDisplay: result.wordCount || undefined,
       sourceUrl: result.sourceUrl,

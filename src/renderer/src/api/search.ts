@@ -2,7 +2,7 @@
  * 搜索相关 API
  */
 
-import type { SearchResult } from '../types'
+import type { SearchDetail, SearchResult } from '../types'
 
 /**
  * 从 youshu.me 搜索书籍
@@ -24,4 +24,15 @@ export async function downloadCover(url: string, title?: string): Promise<string
     return response.data
   }
   throw new Error(response.error || '封面下载失败')
+}
+
+/**
+ * 获取 youshu 作品详情信息（平台等）
+ */
+export async function fetchYoushuDetail(sourceUrl: string): Promise<SearchDetail> {
+  const response = await window.api.search.detail(sourceUrl)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '获取作品详情失败')
 }

@@ -53,11 +53,16 @@ export interface SearchResult {
   title: string
   author: string
   cover: string
-  platform: string
+  platform?: string
   category?: string
   wordCount: number
   description: string
   sourceUrl: string
+}
+
+export interface SearchDetail {
+  platform?: string
+  category?: string
 }
 
 export interface Note {

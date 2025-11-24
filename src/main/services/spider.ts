@@ -21,7 +21,7 @@ class SpiderService {
   private readonly retryDelay = 500
   private readonly detailLabelMap: Record<'category' | 'platform', string[]> = {
     category: ['作品分类', '作品类别', '小说分类', '小说类别', '作品类型', '小说类型'],
-    platform: ['首发网站', '首发站点', '首发平台', '首发网站', '首发站点', '授权级别']
+    platform: ['首发网站', '首发站点', '首发平台']
   }
 
   constructor() {
@@ -66,9 +66,6 @@ class SpiderService {
         const description = row.find('.c_description').text().replace(/\s+/g, ' ').trim()
 
         const meta = this.extractMeta(row, $)
-        if ((!meta.platform || !meta.category) && link) {
-          await this.enrichMetaFromDetail(link, meta)
-        }
 
         const normalizedCover = this.normalizeUrl(coverSrc)
 
@@ -76,7 +73,7 @@ class SpiderService {
           title,
           author: meta.author || '未知作者',
           cover: this.toProxyImageUrl(normalizedCover),
-          platform: meta.platform || '未知平台',
+          platform: meta.platform || undefined,
           category: meta.category || '',
           wordCount: meta.wordCount,
           description: description || '暂无简介',
@@ -181,40 +178,25 @@ class SpiderService {
     return meta
   }
 
-  private async enrichMetaFromDetail(
-    link: string,
-    meta: {
-      author: string
-      platform: string
-      category: string
-      wordCount: number
-    }
-  ): Promise<void> {
-    const detailUrl = this.normalizeUrl(link)
+  async fetchDetailInfo(sourceUrl: string): Promise<{
+    category?: string
+    platform?: string
+  }> {
+    const detailUrl = this.normalizeUrl(sourceUrl)
     if (!detailUrl) {
-      return
+      throw new Error('sourceUrl 不能为空')
     }
 
-    try {
-      const response = await this.requestWithRetry(detailUrl)
-      const buffer = Buffer.from(response.data)
-      const html = this.decodeHtml(buffer, response.headers)
-      const detailMeta = this.extractDetailMeta(html)
-      if (!meta.category && detailMeta.category) {
-        meta.category = detailMeta.category
-      }
-      if (!meta.platform && detailMeta.platform) {
-        meta.platform = detailMeta.platform
-      }
-    } catch (error) {
-      console.warn('作品详情解析失败，使用基础信息', error)
-    }
+    const response = await this.requestWithRetry(detailUrl)
+    const buffer = Buffer.from(response.data)
+    const html = this.decodeHtml(buffer, response.headers)
+    return this.extractDetailMeta(html)
   }
 
-  private extractDetailMeta(html: string): Partial<{
-    category: string
-    platform: string
-  }> {
+  private extractDetailMeta(html: string): {
+    category?: string
+    platform?: string
+  } {
     const $ = cheerio.load(html)
     const detailMeta: Partial<{ category: string; platform: string }> = {}
     const selectors = [
@@ -244,10 +226,7 @@ class SpiderService {
     return detailMeta
   }
 
-  private assignDetailValue(
-    text: string,
-    meta: Partial<{ category: string; platform: string }>
-  ): void {
+  private assignDetailValue(text: string, meta: { category?: string; platform?: string }): void {
     const normalized = text.replace(/\s+/g, ' ').trim()
     const mappings = Object.entries(this.detailLabelMap) as Array<
       [keyof typeof this.detailLabelMap, string[]]

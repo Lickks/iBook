@@ -34,6 +34,32 @@ export function setupSearchHandlers(): void {
   })
 
   /**
+   * 获取 youshu 作品详情补充信息
+   */
+  ipcMain.handle(
+    'search:youshuDetail',
+    async (_event: IpcMainInvokeEvent, sourceUrl: string | undefined) => {
+      try {
+        if (!sourceUrl || !sourceUrl.trim()) {
+          return { success: false, error: '作品链接不能为空' }
+        }
+        const detail = await spiderService.fetchDetailInfo(sourceUrl)
+        return {
+          success: true,
+          data: detail
+        }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : '获取作品详情失败'
+        console.error('获取 youshu 作品详情失败:', error)
+        return {
+          success: false,
+          error: message
+        }
+      }
+    }
+  )
+
+  /**
    * 下载并处理封面
    */
   ipcMain.handle(

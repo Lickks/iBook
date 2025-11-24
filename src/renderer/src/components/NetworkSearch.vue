@@ -113,7 +113,7 @@ function handleCoverError(result: SearchResult): void {
             <p class="meta">
               <span>{{ result.author || '未知作者' }}</span>
               <span class="dot">•</span>
-              <span>{{ result.platform || '未知平台' }}</span>
+              <span>{{ result.category || '未知类型' }}</span>
               <span class="dot">•</span>
               <span>{{ formatWordCount(result.wordCount) }}</span>
             </p>

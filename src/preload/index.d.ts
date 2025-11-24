@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { BookInput, DocumentInput, SearchResult } from '../renderer/src/types/book'
+import type { BookInput, DocumentInput, SearchDetail, SearchResult } from '../renderer/src/types/book'
 import type { ApiResponse } from '../renderer/src/types/api'
 
 declare global {
@@ -24,6 +24,7 @@ declare global {
       }
       search: {
         youshu: (keyword: string) => Promise<ApiResponse<SearchResult[]>>
+        detail: (sourceUrl: string) => Promise<ApiResponse<SearchDetail>>
         downloadCover: (url: string, title?: string) => Promise<ApiResponse<string>>
       }
     }

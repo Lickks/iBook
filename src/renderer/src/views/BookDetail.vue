@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
-import type { BookInput } from '../types'
+import type { Book, BookInput } from '../types'
 import BookForm from '../components/BookForm.vue'
+import { fetchYoushuDetail } from '../api/search'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,6 +14,7 @@ const isEditing = ref(false)
 const confirmDelete = ref(false)
 const updating = ref(false)
 const deleting = ref(false)
+const detailEnriched = ref(false)
 
 const bookId = computed(() => Number(route.params.id))
 const statusMap: Record<string, string> = {
@@ -66,9 +68,45 @@ async function handleDelete(): Promise<void> {
   }
 }
 
+async function enrichBookFromSource(current?: Book | null): Promise<void> {
+  if (!current || detailEnriched.value) {
+    return
+  }
+  if (current.platform || !current.sourceUrl) {
+    detailEnriched.value = true
+    return
+  }
+
+  try {
+    const detail = await fetchYoushuDetail(current.sourceUrl)
+    const payload: Partial<BookInput> = {}
+    if (detail.platform) {
+      payload.platform = detail.platform
+    }
+    if (detail.category && !current.category) {
+      payload.category = detail.category
+    }
+    if (Object.keys(payload).length > 0) {
+      await bookStore.updateBook(current.id, payload)
+    }
+  } catch (error) {
+    console.warn('自动补全平台信息失败', error)
+  } finally {
+    detailEnriched.value = true
+  }
+}
+
 onMounted(() => {
   loadBook()
 })
+
+watch(
+  () => book.value,
+  (current) => {
+    void enrichBookFromSource(current as Book | null)
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
