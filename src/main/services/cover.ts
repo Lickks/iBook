@@ -16,10 +16,17 @@ interface DownloadOptions {
  * 封面下载与处理服务
  */
 class CoverService {
-  private readonly downloadDir: string
+  private _downloadDir: string
 
   constructor() {
-    this.downloadDir = join(app.getPath('userData'), 'covers')
+    this._downloadDir = ''
+  }
+
+  private getDownloadDir(): string {
+    if (!this._downloadDir) {
+      this._downloadDir = join(app.getPath('userData'), 'covers')
+    }
+    return this._downloadDir
   }
 
   /**
@@ -54,7 +61,7 @@ class CoverService {
     image.quality(quality)
 
     const fileName = this.buildFileName(options.title)
-    const filePath = join(this.downloadDir, fileName)
+    const filePath = join(this.getDownloadDir(), fileName)
     await image.writeAsync(filePath)
 
     return pathToFileURL(filePath).toString()
@@ -65,9 +72,9 @@ class CoverService {
    */
   private async ensureDirectory(): Promise<void> {
     try {
-      await access(this.downloadDir, constants.F_OK)
+      await access(this.getDownloadDir(), constants.F_OK)
     } catch {
-      await mkdir(this.downloadDir, { recursive: true })
+      await mkdir(this.getDownloadDir(), { recursive: true })
     }
   }
 

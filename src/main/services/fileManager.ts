@@ -8,23 +8,34 @@ import { v4 as uuidv4 } from 'uuid'
  * 负责文件的保存、删除、打开等操作
  */
 class FileManagerService {
-  private documentsDir: string
+  private _documentsDir: string
 
   constructor() {
-    // 获取用户数据目录
-    const userDataPath = app.getPath('userData')
-    // 文档存储目录
-    this.documentsDir = path.join(userDataPath, 'documents')
-    // 确保目录存在
-    this.ensureDirectoryExists()
+    // 延迟初始化，避免在模块顶层调用 electron.app
+    this._documentsDir = ''
+  }
+
+  /**
+   * 获取文档目录
+   */
+  private getDocumentsDir(): string {
+    if (!this._documentsDir) {
+      // 获取用户数据目录
+      const userDataPath = app.getPath('userData')
+      // 文档存储目录
+      this._documentsDir = path.join(userDataPath, 'documents')
+      // 确保目录存在
+      this.ensureDirectoryExists()
+    }
+    return this._documentsDir
   }
 
   /**
    * 确保文档目录存在
    */
   private ensureDirectoryExists(): void {
-    if (!fs.existsSync(this.documentsDir)) {
-      fs.mkdirSync(this.documentsDir, { recursive: true })
+    if (!fs.existsSync(this.getDocumentsDir())) {
+      fs.mkdirSync(this.getDocumentsDir(), { recursive: true })
     }
   }
 
@@ -36,108 +47,67 @@ class FileManagerService {
    */
   async saveFile(filePath: string, bookId: number): Promise<string> {
     try {
-      // 检查文件是否存在
-      if (!fs.existsSync(filePath)) {
-        throw new Error('文件不存在')
-      }
+      // 读取原文件
+      const fileBuffer = fs.readFileSync(filePath)
 
-      // 获取文件信息
-      const fileStats = fs.statSync(filePath)
-      if (!fileStats.isFile()) {
-        throw new Error('不是有效的文件')
-      }
+      // 生成唯一文件名
+      const originalName = path.basename(filePath)
+      const ext = path.extname(originalName)
+      const uniqueName = `${bookId}_${uuidv4()}${ext}`
 
-      // 获取源文件名并处理冲突
-      const originalFileName = path.basename(filePath)
-      const finalFileName = this.resolveFileNameConflict(originalFileName)
-      const destPath = path.join(this.documentsDir, finalFileName)
+      // 保存到文档目录
+      const savePath = path.join(this.getDocumentsDir(), uniqueName)
+      fs.writeFileSync(savePath, fileBuffer)
 
-      // 复制文件
-      fs.copyFileSync(filePath, destPath)
-
-      return finalFileName
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error)
-      throw new Error(`文件保存失败: ${message}`)
+      return uniqueName
+    } catch (error) {
+      console.error('保存文件失败:', error)
+      throw new Error('保存文件失败')
     }
-  }
-
-  /**
-   * 解决文件名冲突
-   * 如果文件名已存在，自动添加序号：文件名(1).ext, 文件名(2).ext
-   * @param fileName 原始文件名
-   * @returns 不冲突的文件名
-   */
-  private resolveFileNameConflict(fileName: string): string {
-    const ext = path.extname(fileName)
-    const nameWithoutExt = path.basename(fileName, ext)
-
-    let finalFileName = fileName
-    let counter = 1
-
-    // 循环检查文件是否存在，直到找到不冲突的文件名
-    while (fs.existsSync(path.join(this.documentsDir, finalFileName))) {
-      finalFileName = `${nameWithoutExt}(${counter})${ext}`
-      counter++
-    }
-
-    return finalFileName
   }
 
   /**
    * 删除文件
    * @param fileName 文件名
    */
-  async deleteFile(fileName: string): Promise<void> {
+  async deleteFile(fileName: string): Promise<boolean> {
     try {
-      const filePath = path.join(this.documentsDir, fileName)
-
+      const filePath = path.join(this.getDocumentsDir(), fileName)
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath)
+        return true
       }
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error)
-      throw new Error(`文件删除失败: ${message}`)
+      return false
+    } catch (error) {
+      console.error('删除文件失败:', error)
+      return false
     }
   }
 
   /**
-   * 使用系统默认程序打开文件
+   * 打开文件
    * @param fileName 文件名
    */
   async openFile(fileName: string): Promise<void> {
     try {
-      const filePath = path.join(this.documentsDir, fileName)
-
-      if (!fs.existsSync(filePath)) {
+      const filePath = path.join(this.getDocumentsDir(), fileName)
+      if (fs.existsSync(filePath)) {
+        await shell.openPath(filePath)
+      } else {
         throw new Error('文件不存在')
       }
-
-      // 使用系统默认程序打开
-      await shell.openPath(filePath)
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error)
-      throw new Error(`文件打开失败: ${message}`)
+    } catch (error) {
+      console.error('打开文件失败:', error)
+      throw new Error('打开文件失败')
     }
   }
 
   /**
-   * 获取文件完整路径
+   * 获取文件路径
    * @param fileName 文件名
-   * @returns 完整路径
    */
   getFilePath(fileName: string): string {
-    return path.join(this.documentsDir, fileName)
-  }
-
-  /**
-   * 检查文件是否存在
-   * @param fileName 文件名
-   * @returns 是否存在
-   */
-  fileExists(fileName: string): boolean {
-    const filePath = path.join(this.documentsDir, fileName)
-    return fs.existsSync(filePath)
+    return path.join(this.getDocumentsDir(), fileName)
   }
 
   /**
@@ -147,7 +117,7 @@ class FileManagerService {
    */
   getFileSize(fileName: string): number {
     try {
-      const filePath = path.join(this.documentsDir, fileName)
+      const filePath = path.join(this.getDocumentsDir(), fileName)
       if (fs.existsSync(filePath)) {
         const stats = fs.statSync(filePath)
         return stats.size
@@ -156,13 +126,6 @@ class FileManagerService {
     } catch (error) {
       return 0
     }
-  }
-
-  /**
-   * 获取文档存储目录路径
-   */
-  getDocumentsDir(): string {
-    return this.documentsDir
   }
 }
 

@@ -45,7 +45,12 @@
           <div class="value">{{ formatWordCount(statisticsData.totalWordCount) }}</div>
           <div class="unit">字</div>
         </div>
-          <div class="stat-card">
+        <div class="stat-card">
+          <h3>平均评分</h3>
+          <div class="value">{{ statisticsData.averageRating }}</div>
+          <div class="unit">分</div>
+        </div>
+        <div class="stat-card">
           <h3>已读完</h3>
           <div class="value">{{ statisticsData.finishedBooks }}</div>
           <div class="unit">本</div>
@@ -62,70 +67,11 @@
         </div>
       </div>
 
-      <!-- 图表区域 -->
+      <!-- 简单图表区域 -->
       <div class="statistics__charts">
-        <!-- 第一行：三个图表 -->
-        <div class="statistics__chart-row">
-          <!-- 类型分布饼图 -->
-          <div class="statistics__chart-item">
-            <BaseChart
-              title="类型分布"
-              :data="statisticsData?.categoryStats"
-              height="350px"
-              :loading="loading"
-              chart-type="pie"
-              pie-type="ring"
-              :show-percentage="true"
-              :responsive="true"
-            />
-          </div>
-
-          <!-- 平台分布饼图 -->
-          <div class="statistics__chart-item">
-            <BaseChart
-              title="平台分布"
-              :data="statisticsData?.platformStats"
-              height="350px"
-              :loading="loading"
-              chart-type="pie"
-              pie-type="ring"
-              :show-percentage="true"
-              :responsive="true"
-            />
-          </div>
-
-          <!-- 阅读状态分布饼图 -->
-          <div class="statistics__chart-item">
-            <BaseChart
-              title="阅读状态分布"
-              :data="statusChartData"
-              height="350px"
-              :loading="loading"
-              chart-type="pie"
-              pie-type="ring"
-              :show-percentage="true"
-              :responsive="true"
-            />
-          </div>
-        </div>
-
-        <!-- 第二行：字数分布柱状图 -->
-        <div class="statistics__chart-row">
-          <!-- 字数分布柱状图 -->
-          <div class="statistics__chart-item statistics__chart-item--full">
-            <BaseChart
-              title="字数分布"
-              :data="wordCountDistribution"
-              height="350px"
-              :loading="loading"
-              chart-type="bar"
-              :show-label="true"
-              orientation="vertical"
-              :responsive="true"
-              y-axis-name="书籍数量"
-              x-axis-name="字数区间"
-            />
-          </div>
+        <div class="chart-container">
+          <h3>阅读状态分布</h3>
+          <div ref="statusChartRef" style="width: 100%; height: 300px;"></div>
         </div>
       </div>
     </div>
@@ -165,43 +111,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Refresh } from '@element-plus/icons-vue'
-import statsApi from '@renderer/api/stats'
-import type { StatisticsData } from '@renderer/api/stats'
-import BaseChart from '@renderer/components/stats/BaseChart.vue'
+import statsApi from '@/api/stats'
+import type { StatisticsData } from '@/api/stats'
+import * as echarts from 'echarts'
 
 // 响应式数据
 const loading = ref(false)
 const showExportDialog = ref(false)
 const statisticsData = ref<StatisticsData>()
-
-// 计算字数分布数据
-const wordCountDistribution = computed(() => {
-  if (!statisticsData.value?.totalBooks) return []
-
-  // 为了演示，我们根据总字数创建模拟分布
-  // 在实际应用中，这应该从后端获取详细的书籍数据
-  const totalBooks = statisticsData.value.totalBooks
-  const distribution = [
-    { name: '0-5万字', value: Math.round(totalBooks * 0.3) },
-    { name: '5-10万字', value: Math.round(totalBooks * 0.4) },
-    { name: '10-20万字', value: Math.round(totalBooks * 0.2) },
-    { name: '20万字以上', value: Math.round(totalBooks * 0.1) }
-  ]
-
-  // 确保总数不超过实际书籍数量
-  const totalInDistribution = distribution.reduce((sum, item) => sum + item.value, 0)
-  if (totalInDistribution > totalBooks) {
-    const scaleFactor = totalBooks / totalInDistribution
-    distribution.forEach(item => {
-      item.value = Math.round(item.value * scaleFactor)
-    })
-  }
-
-  return distribution.filter(item => item.value > 0)
-})
+const statusChartRef = ref<HTMLDivElement>()
+let statusChart: echarts.ECharts | null = null
 
 // 格式化字数显示
 const formatWordCount = (count: number) => {
@@ -211,16 +133,61 @@ const formatWordCount = (count: number) => {
   return count.toString()
 }
 
-// 转换阅读状态数据为图表格式
-const statusChartData = computed(() => {
-  if (!statisticsData.value) return []
+// 初始化状态图表
+const initStatusChart = () => {
+  if (!statusChartRef.value || !statisticsData.value) return
 
-  return [
-    { name: '已读完', value: statisticsData.value.finishedBooks },
-    { name: '阅读中', value: statisticsData.value.readingBooks },
-    { name: '未读', value: statisticsData.value.unreadBooks }
-  ].filter(item => item.value > 0)
-})
+  try {
+    statusChart = echarts.init(statusChartRef.value)
+
+    const option = {
+      tooltip: {
+        trigger: 'item',
+        formatter: '{a} <br/>{b}: {c} ({d}%)'
+      },
+      legend: {
+        orient: 'vertical',
+        left: 'left'
+      },
+      series: [
+        {
+          name: '阅读状态',
+          type: 'pie',
+          radius: ['40%', '70%'],
+          avoidLabelOverlap: false,
+          itemStyle: {
+            borderRadius: 10,
+            borderColor: '#fff',
+            borderWidth: 2
+          },
+          label: {
+            show: false,
+            position: 'center'
+          },
+          emphasis: {
+            label: {
+              show: true,
+              fontSize: '20',
+              fontWeight: 'bold'
+            }
+          },
+          labelLine: {
+            show: false
+          },
+          data: [
+            { value: statisticsData.value.finishedBooks, name: '已读完' },
+            { value: statisticsData.value.readingBooks, name: '阅读中' },
+            { value: statisticsData.value.unreadBooks, name: '未读' }
+          ]
+        }
+      ]
+    }
+
+    statusChart.setOption(option)
+  } catch (error) {
+    console.error('状态图表初始化失败:', error)
+  }
+}
 
 // 获取统计数据
 const fetchStatistics = async () => {
@@ -233,6 +200,12 @@ const fetchStatistics = async () => {
     if (response.success && response.data) {
       statisticsData.value = response.data
       console.log('统计数据获取成功:', statisticsData.value)
+
+      // 等待DOM更新后初始化图表
+      await nextTick()
+      setTimeout(() => {
+        initStatusChart()
+      }, 100)
     } else {
       ElMessage.error(response.error || '获取统计数据失败')
     }
@@ -301,20 +274,12 @@ onMounted(() => {
   @apply space-y-8;
 }
 
-.statistics__chart-row {
-  @apply grid grid-cols-1 lg:grid-cols-3 gap-6;
-}
-
-.statistics__chart-item {
+.chart-container {
   @apply bg-white rounded-lg shadow-sm border border-gray-100 p-6;
 }
 
-.statistics__chart-item--full {
-  @apply col-span-1 lg:col-span-3;
-}
-
-.chart-container {
-  width: 100%;
+.chart-container h3 {
+  @apply text-lg font-semibold text-gray-900 mb-4;
 }
 
 /* 加载状态 */

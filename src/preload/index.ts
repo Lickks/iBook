@@ -41,6 +41,33 @@ const api = {
       ipcRenderer.invoke('search:youshuDetail', sourceUrl),
     downloadCover: (url: string, title?: string): Promise<ApiResponse<string>> =>
       ipcRenderer.invoke('search:downloadCover', { url, title })
+  },
+
+  // 统计分析操作
+  stats: {
+    // 获取总体统计数据
+    getOverview: (): Promise<ApiResponse> => ipcRenderer.invoke('stats:getOverview'),
+    // 获取分类统计数据
+    getCategoryStats: (): Promise<ApiResponse> => ipcRenderer.invoke('stats:getCategoryStats'),
+    // 获取平台统计数据
+    getPlatformStats: (): Promise<ApiResponse> => ipcRenderer.invoke('stats:getPlatformStats'),
+    // 获取阅读状态统计数据
+    getStatusStats: (): Promise<ApiResponse> => ipcRenderer.invoke('stats:getStatusStats'),
+    // 获取月度统计数据
+    getMonthlyStats: (months?: number): Promise<ApiResponse> =>
+      ipcRenderer.invoke('stats:getMonthlyStats', months),
+    // 导出统计数据
+    exportData: (options: { format: 'excel' | 'csv', dateRange?: any, dataTypes?: any }): Promise<ApiResponse> =>
+      ipcRenderer.invoke('stats:exportData', options),
+    // 导出年度报告
+    exportYearlyReport: (year: number): Promise<ApiResponse> =>
+      ipcRenderer.invoke('stats:exportYearlyReport', year),
+    // 获取指定年份的统计数据
+    getYearlyStats: (year: number): Promise<ApiResponse> =>
+      ipcRenderer.invoke('stats:getYearlyStats', year),
+    // 重新计算统计数据
+    recalculateStats: (): Promise<ApiResponse> =>
+      ipcRenderer.invoke('stats:recalculateStats')
   }
 }
 

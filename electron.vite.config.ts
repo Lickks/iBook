@@ -7,7 +7,12 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [
+      externalizeDepsPlugin({
+        // 确保electron不被externalize，而是正确打包
+        exclude: ['electron']
+      })
+    ]
   },
   preload: {
     plugins: [externalizeDepsPlugin()]
@@ -15,6 +20,7 @@ export default defineConfig({
   renderer: {
     resolve: {
       alias: {
+        '@': resolve('src/renderer/src'),
         '@renderer': resolve('src/renderer/src')
       }
     },

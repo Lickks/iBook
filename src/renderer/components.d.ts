@@ -11,12 +11,21 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    BarChart: typeof import('./src/components/stats/BarChart.vue')['default']
+    BaseChart: typeof import('./src/components/stats/BaseChart.vue')['default']
     BookCard: typeof import('./src/components/BookCard.vue')['default']
     BookForm: typeof import('./src/components/BookForm.vue')['default']
+    ElButton: typeof import('element-plus/es')['ElButton']
     ElCheckbox: typeof import('element-plus/es')['ElCheckbox']
-    ElOption: typeof import('element-plus/es')['ElOption']
-    ElSelect: typeof import('element-plus/es')['ElSelect']
+    ElCheckboxGroup: typeof import('element-plus/es')['ElCheckboxGroup']
+    ElDatePicker: typeof import('element-plus/es')['ElDatePicker']
+    ElDialog: typeof import('element-plus/es')['ElDialog']
+    ElEmpty: typeof import('element-plus/es')['ElEmpty']
+    ElIcon: typeof import('element-plus/es')['ElIcon']
+    ElRadio: typeof import('element-plus/es')['ElRadio']
+    ElRadioGroup: typeof import('element-plus/es')['ElRadioGroup']
     NetworkSearch: typeof import('./src/components/NetworkSearch.vue')['default']
+    PieChart: typeof import('./src/components/stats/PieChart.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     SearchBar: typeof import('./src/components/SearchBar.vue')['default']

@@ -21,13 +21,24 @@ import type {
  */
 class DatabaseService {
   private db: Database.Database | null = null
-  private dbPath: string
+  private _dbPath: string
   private isInitialized = false
 
   constructor() {
     // 数据库文件存储在用户数据目录
-    const userDataPath = app.getPath('userData')
-    this.dbPath = join(userDataPath, 'ibook.db')
+    // 延迟获取路径，避免在模块顶层调用 electron.app
+    this._dbPath = ''
+  }
+
+  /**
+   * 获取数据库路径
+   */
+  private getDbPath(): string {
+    if (!this._dbPath) {
+      const userDataPath = app.getPath('userData')
+      this._dbPath = join(userDataPath, 'ibook.db')
+    }
+    return this._dbPath
   }
 
   /**
@@ -41,7 +52,7 @@ class DatabaseService {
 
     try {
       // 打开数据库连接
-      this.db = new Database(this.dbPath)
+      this.db = new Database(this.getDbPath())
       this.isInitialized = true
       
       // 启用外键约束
@@ -74,7 +85,7 @@ class DatabaseService {
         }
       }
       
-      console.log('数据库初始化成功:', this.dbPath)
+      console.log('数据库初始化成功:', this.getDbPath())
     } catch (error) {
       this.isInitialized = false
       this.db = null
