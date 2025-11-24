@@ -47,19 +47,41 @@ class FileManagerService {
         throw new Error('不是有效的文件')
       }
 
-      // 生成新文件名: bookId_uuid.ext
-      const ext = path.extname(filePath)
-      const newFileName = `${bookId}_${uuidv4()}${ext}`
-      const destPath = path.join(this.documentsDir, newFileName)
+      // 获取源文件名并处理冲突
+      const originalFileName = path.basename(filePath)
+      const finalFileName = this.resolveFileNameConflict(originalFileName)
+      const destPath = path.join(this.documentsDir, finalFileName)
 
       // 复制文件
       fs.copyFileSync(filePath, destPath)
 
-      return newFileName
+      return finalFileName
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error)
       throw new Error(`文件保存失败: ${message}`)
     }
+  }
+
+  /**
+   * 解决文件名冲突
+   * 如果文件名已存在，自动添加序号：文件名(1).ext, 文件名(2).ext
+   * @param fileName 原始文件名
+   * @returns 不冲突的文件名
+   */
+  private resolveFileNameConflict(fileName: string): string {
+    const ext = path.extname(fileName)
+    const nameWithoutExt = path.basename(fileName, ext)
+
+    let finalFileName = fileName
+    let counter = 1
+
+    // 循环检查文件是否存在，直到找到不冲突的文件名
+    while (fs.existsSync(path.join(this.documentsDir, finalFileName))) {
+      finalFileName = `${nameWithoutExt}(${counter})${ext}`
+      counter++
+    }
+
+    return finalFileName
   }
 
   /**
