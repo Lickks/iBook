@@ -67,7 +67,12 @@ export async function deleteBook(id: number): Promise<boolean> {
  * 批量删除书籍
  */
 export async function deleteBatch(ids: number[]): Promise<number> {
-  const response = await window.api.book.deleteBatch(ids)
+  // 确保传递的是纯数组，避免 IPC 序列化问题
+  const bookIds = Array.isArray(ids) ? ids.filter(id => typeof id === 'number' && Number.isInteger(id) && id > 0) : []
+  if (bookIds.length === 0) {
+    throw new Error('请选择要删除的书籍')
+  }
+  const response = await window.api.book.deleteBatch(bookIds)
   if (response.success && response.data !== undefined) {
     return response.data
   }

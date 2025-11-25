@@ -124,7 +124,9 @@ async function handleBatchDelete(): Promise<void> {
       }
     )
 
-    const count = await bookStore.batchDeleteBooks(selectedBooks.value)
+    // 确保传递的是纯数组，避免 IPC 序列化问题
+    const bookIds = [...selectedBooks.value]
+    const count = await bookStore.batchDeleteBooks(bookIds)
     selectedBooks.value = []
     selectionMode.value = false
     if (count === 0) {

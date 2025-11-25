@@ -75,6 +75,7 @@ export function setupBookHandlers(): void {
    */
   ipcMain.handle('book:deleteBatch', async (_event: IpcMainInvokeEvent, ids: number[]) => {
     try {
+      // 确保参数是可序列化的纯数组
       if (!ids || !Array.isArray(ids) || ids.length === 0) {
         return {
           success: false,
@@ -82,8 +83,16 @@ export function setupBookHandlers(): void {
         }
       }
       
-      // 验证ID数组中的每个元素都是有效的数字
-      const validIds = ids.filter(id => typeof id === 'number' && id > 0 && Number.isInteger(id))
+      // 创建新的纯数组，确保所有元素都是可序列化的数字
+      const validIds: number[] = []
+      for (const id of ids) {
+        // 确保是数字类型且是整数
+        const numId = typeof id === 'number' ? id : Number(id)
+        if (Number.isInteger(numId) && numId > 0 && !isNaN(numId)) {
+          validIds.push(numId)
+        }
+      }
+      
       if (validIds.length === 0) {
         return {
           success: false,

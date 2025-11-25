@@ -494,9 +494,11 @@ export const useBookStore = defineStore('book', () => {
   async function batchDeleteBooks(bookIds: number[]): Promise<number> {
     loading.value = true
     try {
-      const count = await bookAPI.deleteBatch(bookIds)
+      // 确保传递的是纯数组，避免 IPC 序列化问题
+      const ids = Array.isArray(bookIds) ? [...bookIds] : []
+      const count = await bookAPI.deleteBatch(ids)
       // 从本地状态中移除已删除的书籍 - 使用新数组引用
-      books.value = books.value.filter(book => !bookIds.includes(book.id))
+      books.value = books.value.filter(book => !ids.includes(book.id))
       // 清除缓存
       filteredBooksCache = null
       filteredBooksCacheKey = ''
