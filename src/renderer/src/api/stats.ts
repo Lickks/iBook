@@ -54,19 +54,6 @@ export interface StatisticsData {
   }
 }
 
-export interface ExportOptions {
-  format: 'excel' | 'csv'
-  dateRange?: {
-    start: string
-    end: string
-  }
-  includeCharts?: boolean
-  dataTypes?: {
-    books: boolean
-    documents: boolean
-    statistics: boolean
-  }
-}
 
 /**
  * 统计 API 类
@@ -122,26 +109,7 @@ export class StatsApi {
     }
   }
 
-  /**
-   * 导出统计数据
-   */
-  async exportData(options: ExportOptions): Promise<ApiResponse<{ filePath: string, fileName: string }>> {
-    return await window.api.stats?.exportData(options) || {
-      success: false,
-      error: '统计API不可用'
-    }
-  }
-
-  /**
-   * 导出年度报告
-   */
-  async exportYearlyReport(year: number): Promise<ApiResponse<{ filePath: string, fileName: string }>> {
-    return await window.api.stats?.exportYearlyReport(year) || {
-      success: false,
-      error: '统计API不可用'
-    }
-  }
-
+  
   /**
    * 获取指定年份的统计数据
    */

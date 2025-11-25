@@ -56,13 +56,7 @@ const api = {
     // 获取月度统计数据
     getMonthlyStats: (months?: number): Promise<ApiResponse> =>
       ipcRenderer.invoke('stats:getMonthlyStats', months),
-    // 导出统计数据
-    exportData: (options: { format: 'excel' | 'csv', dateRange?: any, dataTypes?: any }): Promise<ApiResponse> =>
-      ipcRenderer.invoke('stats:exportData', options),
-    // 导出年度报告
-    exportYearlyReport: (year: number): Promise<ApiResponse> =>
-      ipcRenderer.invoke('stats:exportYearlyReport', year),
-    // 获取指定年份的统计数据
+      // 获取指定年份的统计数据
     getYearlyStats: (year: number): Promise<ApiResponse> =>
       ipcRenderer.invoke('stats:getYearlyStats', year),
     // 重新计算统计数据

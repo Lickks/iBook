@@ -5,8 +5,15 @@
       <h1>统计分析</h1>
       <p class="subtitle">查看您的阅读数据和统计信息</p>
       <div class="actions">
-        <el-button @click="refreshData" :loading="loading">刷新数据</el-button>
-        <el-button type="primary" @click="showExportDialog = true">导出数据</el-button>
+        <button
+          class="ghost-btn"
+          type="button"
+          @click="refreshData"
+          :disabled="loading"
+        >
+          <span v-if="loading" class="loading-icon">⟳</span>
+          {{ loading ? '刷新中...' : '刷新数据' }}
+        </button>
       </div>
     </div>
 
@@ -97,62 +104,15 @@
       </el-empty>
     </div>
 
-    <!-- 导出对话框 -->
-    <el-dialog v-model="showExportDialog" title="导出数据" width="500px">
-      <div class="export-form">
-        <div class="export-section">
-          <h4>导出格式</h4>
-          <el-radio-group v-model="exportFormat">
-            <el-radio label="excel">Excel文件 (.xlsx)</el-radio>
-            <el-radio label="csv">CSV文件 (.csv)</el-radio>
-          </el-radio-group>
-        </div>
-
-        <div class="export-section">
-          <h4>包含数据</h4>
-          <el-checkbox-group v-model="exportData">
-            <el-checkbox label="books">书籍信息</el-checkbox>
-            <el-checkbox label="statistics">统计数据</el-checkbox>
-            <el-checkbox label="annual">年度报告</el-checkbox>
-          </el-checkbox-group>
-        </div>
-
-        <div class="export-section">
-          <h4>时间范围（可选）</h4>
-          <el-date-picker
-            v-model="dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-            style="width: 100%"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="showExportDialog = false">取消</el-button>
-          <el-button
-            type="primary"
-            @click="handleExport"
-            :loading="exporting"
-            :disabled="exportData.length === 0"
-          >
-            {{ exporting ? '导出中...' : '导出' }}
-          </el-button>
-        </div>
-      </template>
-    </el-dialog>
-  </div>
+    </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { useUIStore } from '../stores/ui'
+
+const uiStore = useUIStore()
 
 interface Book {
   id: string
@@ -195,11 +155,6 @@ interface StatisticsData {
 }
 
 const loading = ref(false)
-const showExportDialog = ref(false)
-const exporting = ref(false)
-const exportFormat = ref('excel')
-const exportData = ref(['books', 'statistics', 'annual'])
-const dateRange = ref<[string, string] | []>([])
 const data = ref<StatisticsData | null>(null)
 const statusChartRef = ref<HTMLDivElement>()
 const categoryChartRef = ref<HTMLDivElement>()
@@ -527,50 +482,6 @@ const refreshData = () => {
   ElMessage.success('数据已刷新')
 }
 
-// 处理导出
-const handleExport = async () => {
-  exporting.value = true
-
-  try {
-    console.log('开始导出数据...', {
-      format: exportFormat.value,
-      dataTypes: exportData.value,
-      dateRange: dateRange.value
-    })
-
-    const exportOptions = {
-      format: exportFormat.value as 'excel' | 'csv',
-      dateRange: dateRange.value.length === 2 ? {
-        start: dateRange.value[0],
-        end: dateRange.value[1]
-      } : undefined,
-      dataTypes: {
-        books: exportData.value.includes('books'),
-        statistics: exportData.value.includes('statistics'),
-        annual: exportData.value.includes('annual')
-      }
-    }
-
-    const response = await window.api.stats?.exportData(exportOptions)
-
-    if (response && response.success) {
-      ElMessage.success(`数据导出成功！文件：${response.data?.fileName || '导出文件'}`)
-      showExportDialog.value = false
-
-      // 重置表单
-      exportFormat.value = 'excel'
-      exportData.value = ['books', 'statistics', 'annual']
-      dateRange.value = []
-    } else {
-      throw new Error(response?.error || '导出失败')
-    }
-  } catch (error) {
-    console.error('导出数据失败:', error)
-    ElMessage.error('导出数据失败，请重试')
-  } finally {
-    exporting.value = false
-  }
-}
 
 onMounted(() => {
   console.log('统计分析页面加载')
@@ -610,6 +521,20 @@ onMounted(() => {
 .actions {
   display: flex;
   gap: 12px;
+}
+
+.loading-icon {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-container {

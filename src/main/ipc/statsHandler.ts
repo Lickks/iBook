@@ -5,7 +5,6 @@
 
 import { ipcMain } from 'electron'
 import { databaseService } from '../services/database'
-import { ExportService } from '../services/exportService'
 
 // 统计数据接口定义
 interface ChartData {
@@ -41,7 +40,6 @@ interface StatisticsData {
  * 注册统计相关的 IPC 处理器
  */
 export function registerStatsHandlers(): void {
-  const exportService = new ExportService()
 
   /**
    * 获取总体统计数据
@@ -303,44 +301,7 @@ export function registerStatsHandlers(): void {
     }
   })
 
-  /**
-   * 导出统计数据
-   */
-  ipcMain.handle('stats:exportData', async (_, options: { format: 'excel' | 'csv', dateRange?: any, dataTypes?: any }) => {
-    try {
-      const result = await exportService.exportStatistics(options)
-      return {
-        success: true,
-        data: result
-      }
-    } catch (error) {
-      console.error('导出数据失败:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : '导出数据失败'
-      }
-    }
-  })
-
-  /**
-   * 导出年度报告
-   */
-  ipcMain.handle('stats:exportYearlyReport', async (_, year: number) => {
-    try {
-      const result = await exportService.exportYearlyReport(year)
-      return {
-        success: true,
-        data: result
-      }
-    } catch (error) {
-      console.error('导出年度报告失败:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : '导出年度报告失败'
-      }
-    }
-  })
-
+  
   /**
    * 获取指定年份的统计数据
    */
