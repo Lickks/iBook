@@ -38,6 +38,26 @@
     --color-warning: #fb923c;
 }
 
+/* Element Plus 暗色主题支持 */
+.dark {
+    --el-bg-color: var(--color-bg-soft);
+    --el-text-color-primary: var(--color-text-primary);
+    --el-text-color-regular: var(--color-text-secondary);
+    --el-text-color-secondary: var(--color-text-tertiary);
+    --el-border-color: var(--color-border);
+    --el-fill-color: var(--color-bg-muted);
+    --el-fill-color-light: var(--color-bg-muted);
+    --el-fill-color-lighter: var(--color-bg);
+    --el-fill-color-extra-light: var(--color-bg);
+    --el-fill-color-dark: var(--color-surface);
+    --el-fill-color-darker: var(--color-surface);
+    --el-fill-color-blank: transparent;
+    --el-box-shadow: var(--color-card-shadow);
+    --el-box-shadow-light: var(--color-card-shadow);
+    --el-box-shadow-lighter: var(--color-card-shadow);
+    --el-box-shadow-dark: var(--color-card-shadow);
+}
+
 *,
 *::before,
 *::after {

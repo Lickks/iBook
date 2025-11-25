@@ -10,25 +10,11 @@ import { setupDocumentHandlers } from './ipc/documentHandler'
 import { setupSearchHandlers } from './ipc/searchHandler'
 import { registerStatsHandlers } from './ipc/statsHandler'
 import { setupTagHandlers } from './ipc/tagHandler'
+import { createWindowWithState } from './services/windowState'
 
 function createWindow(): void {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 800,
-    minHeight: 600,
-    show: false,
-    autoHideMenuBar: true,
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  })
+  // 使用窗口状态管理服务创建窗口
+  const mainWindow = createWindowWithState(icon)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()

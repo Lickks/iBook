@@ -95,7 +95,11 @@ onMounted(() => {
       </header>
 
       <main class="view-wrapper">
-        <RouterView />
+        <RouterView v-slot="{ Component, route }">
+          <Transition name="fade" mode="out-in">
+            <component :is="Component" :key="route.path" />
+          </Transition>
+        </RouterView>
       </main>
     </div>
   </div>
@@ -305,8 +309,29 @@ onMounted(() => {
   }
 }
 
+/* 路由过渡动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sidebar {
+    transition: none;
+  }
+
+  .fade-enter-active,
+  .fade-leave-active {
     transition: none;
   }
 }

@@ -6,6 +6,7 @@ import { DEFAULT_TAG_COLORS } from '../constants'
 import type { Tag, TagInput } from '../types'
 import * as tagAPI from '../api/tag'
 import TagList from '../components/TagList.vue'
+import SkeletonLoader from '../components/SkeletonLoader.vue'
 
 const tagStore = useTagStore()
 
@@ -188,8 +189,9 @@ function getTagStyle(tag: Tag): Record<string, string> {
     </div>
 
     <div v-if="tagStore.loading" class="loading-state">
-      <div class="loader" />
-      <p>加载中...</p>
+      <div class="tag-grid">
+        <SkeletonLoader v-for="i in 6" :key="i" type="book-card" />
+      </div>
     </div>
 
     <div v-else-if="tags.length === 0" class="empty-state">

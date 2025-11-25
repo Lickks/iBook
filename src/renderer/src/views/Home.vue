@@ -10,6 +10,7 @@ import StatusStats from '../components/StatusStats.vue'
 import BookCard from '../components/BookCard.vue'
 import DisplayModeToggle from '../components/DisplayModeToggle.vue'
 import FilterBar from '../components/FilterBar.vue'
+import SkeletonLoader from '../components/SkeletonLoader.vue'
 import { useTagStore } from '../stores/tag'
 import TagSelector from '../components/TagSelector.vue'
 
@@ -268,9 +269,13 @@ function openBatchTagDialog(): void {
       </button> -->
     </div>
 
-    <div v-if="bookStore.loading" class="state-card">
-      <div class="loader" />
-      <p>正在加载书籍...</p>
+    <div v-if="bookStore.loading" class="loading-container">
+      <div v-if="viewMode === 'grid'" class="book-collection grid">
+        <SkeletonLoader v-for="i in 8" :key="i" type="book-card" />
+      </div>
+      <div v-else class="book-collection list">
+        <SkeletonLoader v-for="i in 5" :key="i" type="list-item" />
+      </div>
     </div>
 
     <div v-else-if="!hasBooks" class="state-card">
@@ -287,7 +292,7 @@ function openBatchTagDialog(): void {
         </div>
         <p v-else>未找到匹配的书籍，尝试调整搜索关键词。</p>
       </div>
-      <div v-else :class="['book-collection', viewMode]">
+      <TransitionGroup v-else :class="['book-collection', viewMode]" name="book-list" tag="div">
         <BookCard
           v-for="book in filteredBooks"
           :key="book.id"
@@ -298,7 +303,7 @@ function openBatchTagDialog(): void {
           :selected="selectedBooks.includes(book.id)"
           @toggle-select="toggleBookSelection"
         />
-      </div>
+      </TransitionGroup>
     </template>
 
     <!-- 批量添加标签对话框 -->
@@ -498,6 +503,30 @@ h2 {
 
 .book-collection.list {
   grid-template-columns: 1fr;
+}
+
+/* 列表项过渡动画 */
+.book-list-enter-active,
+.book-list-leave-active {
+  transition: all 0.3s ease;
+}
+
+.book-list-enter-from {
+  opacity: 0;
+  transform: scale(0.9) translateY(10px);
+}
+
+.book-list-leave-to {
+  opacity: 0;
+  transform: scale(0.9) translateY(-10px);
+}
+
+.book-list-move {
+  transition: transform 0.3s ease;
+}
+
+.loading-container {
+  width: 100%;
 }
 
 
