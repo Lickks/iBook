@@ -87,13 +87,23 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
       }
     }
 
-    if ((!platform || platform === '未知平台') && result.sourceUrl) {
+    // 获取详情页信息（包括完整的简介）
+    let description = result.description // 默认使用列表页的简介
+    if (result.sourceUrl) {
       try {
         const detail = await fetchYoushuDetail(result.sourceUrl)
         platform = detail.platform || platform
         category = category || detail.category
+        // 优先使用详情页的完整简介（从"内容介绍"标签页提取）
+        // 只要详情页有简介，就使用详情页的简介（即使列表页也有简介）
+        if (detail.description && detail.description.trim().length > 10) {
+          description = detail.description
+          console.log('使用详情页简介，长度:', description.length)
+        } else {
+          console.warn('详情页没有提取到简介，使用列表页简介。详情页简介:', detail.description ? `长度${detail.description.length}` : '不存在')
+        }
       } catch (detailError) {
-        console.warn('获取作品平台信息失败，保留默认值', detailError)
+        console.warn('获取作品详情信息失败，保留默认值', detailError)
       }
     }
 
@@ -103,7 +113,7 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
       coverUrl,
       platform,
       category,
-      description: result.description,
+      description,
       wordCountDisplay: roundWordCount(result.wordCount),
       wordCountSearch: roundWordCount(result.wordCount),
       sourceUrl: result.sourceUrl,

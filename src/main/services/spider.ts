@@ -396,11 +396,57 @@ class SpiderService {
       let description = ''
       const tabValues = $('.tabcontent .tabvalue').toArray()
       if (tabValues.length > 0) {
-        // 第一个 tabvalue 通常是"内容介绍"
-        const introDiv = $(tabValues[0])
-        description = introDiv.text().trim()
+        // 第一个 tabvalue 是"内容介绍"标签页
+        const introTabValue = $(tabValues[0])
+        
+        // 根据实际HTML结构，简介在 tabvalue 内部的 div 中
+        // 查找第一个包含较长文本的 div（排除包含表格关键词的 div）
+        introTabValue.find('div').each((_idx, div) => {
+          if (description) return false // 找到后停止
+          
+          const divText = $(div).text().trim()
+          // 如果这个 div 包含较长的文本（可能是简介），且不包含表格标签
+          if (divText.length > 50 && 
+              !divText.includes('作品分类') && 
+              !divText.includes('首发网站') && 
+              !divText.includes('全文字数') &&
+              !divText.includes('作品性质') &&
+              !divText.includes('授权级别') &&
+              !divText.includes('连载状态') &&
+              !divText.includes('最后更新') &&
+              !divText.includes('章节数') &&
+              !divText.includes('收藏数') &&
+              !divText.includes('点击数') &&
+              !divText.includes('推荐数')) {
+            description = divText
+            return false // 找到后停止
+          }
+        })
+        
+        // 如果没找到，直接获取整个 tabvalue 的文本（排除明显的非简介内容）
+        if (!description || description.length < 20) {
+          const allText = introTabValue.text().trim()
+          // 如果文本较长且不包含表格相关关键词，认为是简介
+          if (allText.length > 50 && 
+              !allText.includes('作品分类') && 
+              !allText.includes('首发网站') && 
+              !allText.includes('全文字数') &&
+              !allText.includes('作品性质') &&
+              !allText.includes('授权级别') &&
+              !allText.includes('连载状态') &&
+              !allText.includes('最后更新') &&
+              !allText.includes('章节数') &&
+              !allText.includes('收藏数') &&
+              !allText.includes('点击数') &&
+              !allText.includes('推荐数')) {
+            description = allText
+          }
+        }
+        
         // 清理文本
-        description = description.replace(/\s+/g, ' ').trim()
+        if (description) {
+          description = description.replace(/\s+/g, ' ').trim()
+        }
       }
       
       // 如果还没找到，尝试其他选择器
@@ -928,6 +974,7 @@ class SpiderService {
   async fetchDetailInfo(sourceUrl: string): Promise<{
     category?: string
     platform?: string
+    description?: string
   }> {
     const detailUrl = this.normalizeUrl(sourceUrl)
     if (!detailUrl) {
@@ -943,9 +990,76 @@ class SpiderService {
   private extractDetailMeta(html: string): {
     category?: string
     platform?: string
+    description?: string
   } {
     const $ = cheerio.load(html)
-    const detailMeta: Partial<{ category: string; platform: string }> = {}
+    const detailMeta: Partial<{ category: string; platform: string; description: string }> = {}
+    const tabContent = $('.tabcontent')
+    const tabValues = tabContent.find('.tabvalue').toArray()
+    
+    // 1. 提取简介 - 从"内容介绍"标签页（第一个 .tabvalue div）
+    // 根据实际HTML结构：
+    // <div class="tabcontent">
+    //   <div class="tabvalue" style="height:180px;">
+    //     <div style="padding: 3px; ...">简介内容在这里</div>
+    //   </div>
+    //   <div class="tabvalue" style="display:none;...">作品信息表格</div>
+    //   ...
+    // </div>
+    if (tabContent.length > 0) {
+      if (tabValues.length > 0) {
+        // 第一个 tabvalue 是"内容介绍"标签页
+        const introTabValue = $(tabValues[0])
+        
+        // 根据实际HTML，简介在 tabvalue 内部的第一个 div 中
+        // 直接获取第一个 div 的文本内容
+        const introDiv = introTabValue.find('div').first()
+        if (introDiv.length > 0) {
+          // 获取第一个 div 的文本（根据HTML结构，这就是简介内容）
+          let description = introDiv.text().trim()
+          
+          // 验证：如果包含表格关键词，说明可能提取错了（可能是第二个tabvalue的内容）
+          // 但根据HTML结构，第一个tabvalue应该不包含表格
+          const hasTableKeywords = description.includes('作品分类') || 
+                                   description.includes('首发网站') || 
+                                   description.includes('全文字数') ||
+                                   description.includes('作品性质') ||
+                                   description.includes('授权级别') ||
+                                   description.includes('连载状态') ||
+                                   description.includes('最后更新') ||
+                                   description.includes('章节数') ||
+                                   description.includes('收藏数') ||
+                                   description.includes('点击数') ||
+                                   description.includes('推荐数') ||
+                                   description.includes('本书尚无公告')
+          
+          // 如果包含表格关键词，说明提取错了，尝试获取整个 tabvalue 的文本（排除table）
+          if (hasTableKeywords) {
+            const allText = introTabValue.clone()
+            allText.find('table').remove() // 移除表格
+            description = allText.text().trim()
+          }
+          
+          // 只要文本长度大于10，就认为是简介（第一个tabvalue的内容应该是简介）
+          // 不需要太多验证，因为根据HTML结构，第一个tabvalue就是"内容介绍"
+          if (description && description.length > 10) {
+            // 清理文本：去除多余的空白字符
+            detailMeta.description = description.replace(/\s+/g, ' ').trim()
+            logger.log(`从详情页提取到简介，长度: ${detailMeta.description.length}`)
+          } else {
+            logger.warn(`从详情页提取简介失败，提取到的文本长度: ${description ? description.length : 0}, 内容预览: ${description ? description.substring(0, 50) : '无'}`)
+          }
+        } else {
+          logger.warn('从详情页提取简介失败，未找到第一个 tabvalue 内部的 div')
+        }
+      } else {
+        logger.warn('从详情页提取简介失败，未找到 tabvalue 元素')
+      }
+    } else {
+      logger.warn('从详情页提取简介失败，未找到 tabcontent 元素')
+    }
+    
+    // 2. 提取作品分类和首发网站 - 从"作品信息"标签页
     const selectors = [
       '.bookinfo li',
       '.workinfo li',
@@ -965,6 +1079,32 @@ class SpiderService {
       }
     }
 
+    // 3. 如果还没找到分类和平台，尝试从"作品信息"标签页的表格中提取
+    if ((!detailMeta.category || !detailMeta.platform) && tabValues.length > 1) {
+      const infoTable = $(tabValues[1]).find('table')
+      if (infoTable.length > 0) {
+        infoTable.find('td').each((_idx, el) => {
+          const text = $(el).text().trim()
+          
+          // 提取作品分类
+          if (!detailMeta.category && /作品分类[：:]/.test(text)) {
+            const match = text.match(/作品分类[：:]\s*([^\s，。；;|]+)/)
+            if (match && match[1]) {
+              detailMeta.category = match[1].trim()
+            }
+          }
+          
+          // 提取首发网站（平台）
+          if (!detailMeta.platform && /首发网站[：:]/.test(text)) {
+            const match = text.match(/首发网站[：:]\s*([^\s，。；;|]+)/)
+            if (match && match[1]) {
+              detailMeta.platform = match[1].trim()
+            }
+          }
+        })
+      }
+    }
+
     if (!detailMeta.category || !detailMeta.platform) {
       const bodyText = $.root().text().replace(/\s+/g, ' ').trim()
       this.assignDetailValue(bodyText, detailMeta)
@@ -973,7 +1113,7 @@ class SpiderService {
     return detailMeta
   }
 
-  private assignDetailValue(text: string, meta: { category?: string; platform?: string }): void {
+  private assignDetailValue(text: string, meta: { category?: string; platform?: string; description?: string }): void {
     const normalized = text.replace(/\s+/g, ' ').trim()
     const mappings = Object.entries(this.detailLabelMap) as Array<
       [keyof typeof this.detailLabelMap, string[]]

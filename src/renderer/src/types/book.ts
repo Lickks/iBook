@@ -67,6 +67,7 @@ export interface SearchResult {
 export interface SearchDetail {
   platform?: string
   category?: string
+  description?: string
 }
 
 export interface Note {
