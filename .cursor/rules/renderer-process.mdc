@@ -1,0 +1,77 @@
+---
+globs: src/renderer/**/*
+---
+
+# 渲染进程开发规范
+
+## API 调用
+
+- 通过 `window.electronAPI.*` 调用主进程功能
+- API 定义在 [src/preload/index.d.ts](mdc:src/preload/index.d.ts)
+- API 封装在 [src/renderer/src/api/](mdc:src/renderer/src/api/) 目录
+- 所有 API 调用都应该有错误处理
+
+示例：
+```typescript
+import { bookAPI } from '@/api/book'
+
+try {
+  const books = await bookAPI.getAll()
+} catch (error) {
+  ElMessage.error('获取书籍列表失败')
+}
+```
+
+## 状态管理
+
+- 使用 Pinia stores 管理应用状态
+- Stores 定义在 [src/renderer/src/stores/](mdc:src/renderer/src/stores/)
+- 主要 stores：
+  - `book.ts` - 书籍列表、筛选、排序
+  - `ui.ts` - UI 状态（主题、布局）
+  - `stats.ts` - 统计数据
+  - `tag.ts` - 标签管理
+  - `displayMode.ts` - 显示模式
+
+## 路由
+
+- 路由定义在 [src/renderer/src/router/index.ts](mdc:src/renderer/src/router/index.ts)
+- 使用 Vue Router 4
+- 路由级组件放在 [src/renderer/src/views/](mdc:src/renderer/src/views/)
+
+## 组件
+
+- 可复用组件放在 [src/renderer/src/components/](mdc:src/renderer/src/components/)
+- 使用 Composition API
+- 组件间通信：
+  - 父子：Props + Emits
+  - 跨组件：Pinia stores
+  - 兄弟组件：通过共同的父组件或 store
+
+## 工具函数
+
+- 工具函数放在 [src/renderer/src/utils/](mdc:src/renderer/src/utils/)
+- 格式化函数在 `format.ts` 中
+- 统一从 `index.ts` 导出
+
+## 类型定义
+
+- 类型定义在 [src/renderer/src/types/](mdc:src/renderer/src/types/)
+- 统一从 `index.ts` 导出
+- 主要类型：
+  - `book.ts` - Book 相关类型
+  - `api.ts` - API 响应类型
+
+## UI 组件库
+
+- 使用 Element Plus
+- 组件自动导入，无需手动 import
+- 使用 Element Plus 的消息提示：`ElMessage`, `ElNotification`
+- 使用 Element Plus 的对话框：`ElMessageBox`
+
+## 主题支持
+
+- 支持明暗主题切换
+- 使用 CSS Variables 定义主题颜色
+- 主题状态在 `uiStore` 中管理
+- 参考 [src/renderer/src/stores/ui.ts](mdc:src/renderer/src/stores/ui.ts)

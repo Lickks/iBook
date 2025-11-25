@@ -1,0 +1,63 @@
+---
+globs: src/main/**/*.ts
+---
+
+# Electron 主进程开发规范
+
+## IPC 通信
+
+- 所有 IPC 处理器放在 [src/main/ipc/](mdc:src/main/ipc/) 目录
+- 使用 `ipcMain.handle()` 处理异步请求
+- 使用 `ipcMain.on()` 处理事件监听
+- 错误处理：捕获异常并返回错误信息给渲染进程
+
+示例：
+```typescript
+ipcMain.handle('book:getAll', async () => {
+  try {
+    return await databaseService.getAllBooks()
+  } catch (error) {
+    logger.error('获取书籍列表失败:', error)
+    throw error
+  }
+})
+```
+
+## 服务层
+
+- 业务逻辑封装在 [src/main/services/](mdc:src/main/services/) 中
+- 每个服务导出单例实例
+- 数据库操作统一通过 `databaseService`
+- 文件操作统一通过 `fileManager`
+
+## 数据库操作
+
+- 使用 `better-sqlite3` 进行数据库操作
+- 所有 SQL 查询使用参数化查询防止 SQL 注入
+- 事务操作使用 `db.transaction()`
+- 参考 [src/main/services/database.ts](mdc:src/main/services/database.ts)
+
+## 文件操作
+
+- 文件保存在 `{userData}/documents/` 目录
+- 使用 UUID 命名文件：`{bookId}_{uuid}.{extension}`
+- 文件操作通过 `fileManager` 服务
+- 参考 [src/main/services/fileManager.ts](mdc:src/main/services/fileManager.ts)
+
+## 日志记录
+
+- 使用 `electron-log` 记录日志
+- 导入：`import logger from './utils/logger'`
+- 使用 `logger.info()`, `logger.error()`, `logger.warn()` 等方法
+
+## 窗口管理
+
+- 窗口创建使用 `createWindowWithState()` 服务
+- 窗口状态（位置、大小）自动保存和恢复
+- 参考 [src/main/services/windowState.ts](mdc:src/main/services/windowState.ts)
+
+## 安全注意事项
+
+- 永远不要直接暴露 Node.js API 给渲染进程
+- 所有 API 必须通过预加载脚本的 `contextBridge` 暴露
+- 验证和清理所有来自渲染进程的输入

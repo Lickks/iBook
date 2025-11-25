@@ -1,0 +1,75 @@
+---
+description: 代码风格和约定
+---
+
+# 代码风格和约定
+
+## 通用规范
+
+### 文件命名
+- TypeScript 文件：`camelCase.ts` 或 `PascalCase.ts`（组件）
+- Vue 组件：`PascalCase.vue`
+- 工具文件：`camelCase.ts`
+
+### 代码格式
+- 使用 2 个空格缩进
+- 使用单引号（字符串）
+- 语句末尾使用分号
+- 遵循 ESLint 和 Prettier 配置
+
+### 注释
+- 使用中文注释（项目为中文项目）
+- 复杂逻辑必须添加注释
+- 函数和类使用 JSDoc 风格注释
+
+## 错误处理
+
+### 主进程
+```typescript
+try {
+  // 操作
+} catch (error) {
+  logger.error('操作失败:', error)
+  throw error // 或返回错误响应
+}
+```
+
+### 渲染进程
+```typescript
+try {
+  // 操作
+} catch (error) {
+  ElMessage.error('操作失败，请重试')
+  console.error(error)
+}
+```
+
+## 异步操作
+
+- 优先使用 `async/await`
+- 避免回调地狱
+- 始终处理 Promise 错误
+
+## 数据库操作
+
+- 使用参数化查询
+- 事务操作使用 `db.transaction()`
+- 批量操作使用事务提高性能
+
+## 性能优化
+
+- 大列表使用虚拟滚动（已有 `VirtualList` 组件）
+- 图片懒加载
+- 避免不必要的响应式数据
+- 使用 `computed` 而非 `watch` 处理派生状态
+
+## 测试
+
+- 关键业务逻辑应该有错误处理
+- 边界情况要考虑（空数据、网络错误、文件损坏等）
+
+## Git 提交
+
+- 遵循 Conventional Commits 规范
+- 提交信息格式：`type(scope): description`
+- 类型：`feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
