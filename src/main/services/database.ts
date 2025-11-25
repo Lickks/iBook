@@ -385,10 +385,40 @@ class DatabaseService {
   deleteBooks(ids: number[]): number {
     if (ids.length === 0) return 0
     const db = this.getDatabase()
-    const placeholders = ids.map(() => '?').join(',')
-    const stmt = db.prepare(`DELETE FROM books WHERE id IN (${placeholders})`)
-    const result = stmt.run(...ids)
-    return result && typeof result.changes === 'number' ? result.changes : 0
+    
+    try {
+      // 确保外键约束已启用（在 better-sqlite3 中，pragma 需要在连接级别设置）
+      // 由于在 initialize() 中已经设置了，这里再次确保
+      db.pragma('foreign_keys = ON')
+      
+      // 使用事务确保数据一致性
+      const transaction = db.transaction((bookIds: number[]) => {
+        // 构建批量删除SQL语句
+        const placeholders = bookIds.map(() => '?').join(',')
+        const sql = `DELETE FROM books WHERE id IN (${placeholders})`
+        const stmt = db.prepare(sql)
+        const result = stmt.run(...bookIds)
+        
+        // 确保只返回基本数据类型，避免可能的序列化问题
+        const changes = result && typeof result.changes === 'number' ? result.changes : 0
+        return changes
+      })
+      
+      const changes = transaction(ids)
+      
+      // 清除相关缓存
+      if (changes > 0) {
+        cacheService.clearPattern('^books:')
+      }
+      
+      return changes
+    } catch (error: any) {
+      console.error('批量删除书籍失败:', error)
+      console.error('删除的ID列表:', ids)
+      console.error('错误堆栈:', error?.stack)
+      const errorMessage = error?.message || String(error) || '未知错误'
+      throw new Error(`批量删除书籍失败: ${errorMessage}`)
+    }
   }
 
   
@@ -954,24 +984,56 @@ class DatabaseService {
 
   /**
    * 为书籍添加标签
+   * 如果关联已存在，返回 true（幂等操作）
    */
   addTagToBook(bookId: number, tagId: number): boolean {
     const db = this.getDatabase()
+    // 先检查关联是否已存在
+    const checkStmt = db.prepare(`
+      SELECT 1 FROM book_tags
+      WHERE book_id = ? AND tag_id = ?
+      LIMIT 1
+    `)
+    const exists = checkStmt.get(bookId, tagId)
+    if (exists) {
+      // 关联已存在，视为成功（幂等操作）
+      return true
+    }
+    // 关联不存在，执行插入
     const stmt = db.prepare(`
-      INSERT OR IGNORE INTO book_tags (book_id, tag_id)
+      INSERT INTO book_tags (book_id, tag_id)
       VALUES (?, ?)
     `)
     const result = stmt.run(bookId, tagId)
     // 确保只返回基本数据类型，避免可能的序列化问题
     const changes = result && typeof result.changes === 'number' ? result.changes : 0
+    
+    // 清除相关缓存，确保标签变更后能获取最新数据
+    if (changes > 0) {
+      cacheService.clearPattern('^books:')
+    }
+    
     return changes > 0
   }
 
   /**
    * 移除书籍标签
+   * 如果关联不存在，返回 true（幂等操作）
    */
   removeTagFromBook(bookId: number, tagId: number): boolean {
     const db = this.getDatabase()
+    // 先检查关联是否存在
+    const checkStmt = db.prepare(`
+      SELECT 1 FROM book_tags
+      WHERE book_id = ? AND tag_id = ?
+      LIMIT 1
+    `)
+    const exists = checkStmt.get(bookId, tagId)
+    if (!exists) {
+      // 关联不存在，视为成功（幂等操作）
+      return true
+    }
+    // 关联存在，执行删除
     const stmt = db.prepare(`
       DELETE FROM book_tags
       WHERE book_id = ? AND tag_id = ?
@@ -979,6 +1041,12 @@ class DatabaseService {
     const result = stmt.run(bookId, tagId)
     // 确保只返回基本数据类型，避免可能的序列化问题
     const changes = result && typeof result.changes === 'number' ? result.changes : 0
+    
+    // 清除相关缓存，确保标签变更后能获取最新数据
+    if (changes > 0) {
+      cacheService.clearPattern('^books:')
+    }
+    
     return changes > 0
   }
 
@@ -1072,7 +1140,14 @@ class DatabaseService {
       }
       return count
     })
-    return transaction(bookIds, tagId)
+    const count = transaction(bookIds, tagId)
+    
+    // 清除相关缓存，确保批量添加标签后能获取最新数据
+    if (count > 0) {
+      cacheService.clearPattern('^books:')
+    }
+    
+    return count
   }
 
   /**

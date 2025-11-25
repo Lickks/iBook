@@ -4,7 +4,6 @@ import { ElMessage } from 'element-plus'
 import { useTagStore } from '../stores/tag'
 import { DEFAULT_TAG_COLORS } from '../constants'
 import type { Tag, TagInput } from '../types'
-import TagList from './TagList.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -151,7 +150,27 @@ onBeforeUnmount(() => {
   <div class="tag-selector">
     <!-- 已选标签展示 -->
     <div class="selected-tags">
-      <TagList :tags="selectedTags" :size="'small'" />
+      <span
+        v-for="tag in selectedTags"
+        :key="tag.id"
+        class="selected-tag"
+        :style="{
+          '--tag-color': tag.color || '#909399',
+          '--tag-bg': `${tag.color || '#909399'}15`,
+          '--tag-border': `${tag.color || '#909399'}40`
+        }"
+      >
+        <span class="tag-dot" />
+        <span class="tag-name">{{ tag.tagName }}</span>
+        <button
+          class="remove-btn"
+          type="button"
+          @click.stop="removeTag(tag.id)"
+          title="删除标签"
+        >
+          ×
+        </button>
+      </span>
       <button
         v-if="allowCreate || tagStore.tags.length > 0"
         class="add-tag-btn"
@@ -263,6 +282,58 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.selected-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 10px;
+  border-radius: 12px;
+  background: var(--tag-bg);
+  border: 1px solid var(--tag-border);
+  font-size: 12px;
+  color: var(--tag-color);
+  transition: all 0.2s ease;
+}
+
+.selected-tag .tag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tag-color);
+  flex-shrink: 0;
+}
+
+.selected-tag .tag-name {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.selected-tag .remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--tag-color);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.selected-tag .remove-btn:hover {
+  opacity: 1;
+  background: var(--tag-color);
+  color: white;
+  transform: scale(1.1);
 }
 
 .add-tag-btn {

@@ -247,9 +247,20 @@ export const useBookStore = defineStore('book', () => {
     try {
       const book = await bookAPI.getBookById(id)
       currentBook.value = book
-      // 如果书籍不在列表中，添加到列表
-      if (book && !books.value.find((b) => b.id === book.id)) {
-        books.value.push(book)
+      if (book) {
+        // 如果书籍已在列表中，更新列表中的书籍；否则添加到列表
+        const index = books.value.findIndex((b) => b.id === book.id)
+        if (index !== -1) {
+          // 更新列表中的书籍 - 使用新数组引用
+          const newBooks = [...books.value]
+          newBooks[index] = book
+          books.value = newBooks
+        } else {
+          books.value.push(book)
+        }
+        // 清除缓存
+        filteredBooksCache = null
+        filteredBooksCacheKey = ''
       }
     } catch (error: any) {
       console.error('获取书籍失败:', error)

@@ -6,7 +6,6 @@ import { useTagStore } from '../stores/tag'
 import type { Book, BookInput, Document } from '../types'
 import BookForm from '../components/BookForm.vue'
 import TagSelector from '../components/TagSelector.vue'
-import TagList from '../components/TagList.vue'
 import { fetchYoushuDetail } from '../api/search'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as tagAPI from '../api/tag'
@@ -308,14 +307,54 @@ const wordCountInfo = computed(() => {
 })
 
 // 标签管理
-const selectedTagIds = computed({
-  get: () => book.value?.tags?.map((tag) => tag.id) || [],
-  set: async (value: number[]) => {
-    if (!book.value) return
-    const currentTagIds = book.value.tags?.map((tag) => tag.id) || []
-    const toAdd = value.filter((id) => !currentTagIds.includes(id))
-    const toRemove = currentTagIds.filter((id) => !value.includes(id))
+const selectedTagIds = ref<number[]>([])
+const isTagInitialized = ref(false)
+const isUpdatingTags = ref(false)
 
+// 同步标签到本地状态
+watch(
+  () => book.value?.tags,
+  (tags) => {
+    // 如果正在更新标签，跳过同步（避免循环更新）
+    if (isUpdatingTags.value) {
+      return
+    }
+    if (tags) {
+      const tagIds = tags.map((tag) => tag.id)
+      selectedTagIds.value = tagIds
+      isTagInitialized.value = true
+    } else {
+      selectedTagIds.value = []
+      isTagInitialized.value = false
+    }
+  },
+  { immediate: true }
+)
+
+// 监听标签变化并更新到服务器
+watch(
+  selectedTagIds,
+  async (newTagIds, oldTagIds) => {
+    // 如果还未初始化完成，不执行更新
+    if (!isTagInitialized.value || !book.value) {
+      return
+    }
+
+    // 如果 oldTagIds 是 undefined，说明是第一次触发，跳过
+    if (oldTagIds === undefined) {
+      return
+    }
+
+    const currentTagIds = book.value.tags?.map((tag) => tag.id) || []
+    const toAdd = newTagIds.filter((id) => !currentTagIds.includes(id))
+    const toRemove = currentTagIds.filter((id) => !newTagIds.includes(id))
+
+    if (toAdd.length === 0 && toRemove.length === 0) {
+      // 没有变化，不需要更新
+      return
+    }
+
+    isUpdatingTags.value = true
     try {
       // 添加新标签
       for (const tagId of toAdd) {
@@ -327,12 +366,23 @@ const selectedTagIds = computed({
       }
       // 刷新书籍信息
       await bookStore.fetchBookById(bookId.value)
+      // 手动同步标签（因为 isUpdatingTags 标志会阻止自动同步）
+      // 从 currentBook 获取最新标签，因为 fetchBookById 会更新 currentBook
+      const updatedBook = bookStore.currentBook
+      if (updatedBook?.tags) {
+        selectedTagIds.value = updatedBook.tags.map((tag) => tag.id)
+      }
       ElMessage.success('标签更新成功')
     } catch (error: any) {
       ElMessage.error(error.message || '更新标签失败')
+      // 更新失败时恢复旧值
+      selectedTagIds.value = oldTagIds || []
+    } finally {
+      isUpdatingTags.value = false
     }
-  }
-})
+  },
+  { deep: true }
+)
 
 onMounted(async () => {
   loadBook()
@@ -388,6 +438,11 @@ watch(
         <li><span>创建时间</span>{{ book.createdAt }}</li>
         <li><span>更新时间</span>{{ book.updatedAt }}</li>
       </ul>
+
+      <!-- 标签区域 -->
+      <div class="tag-section">
+        <TagSelector v-model="selectedTagIds" />
+      </div>
 
       <article class="description">
         <h3>简介</h3>
@@ -486,20 +541,6 @@ watch(
             }}
             ({{ formatWordCount(wordCountInfo.current) }})
           </p>
-        </div>
-      </section>
-
-      <!-- 标签管理区域 -->
-      <section class="tag-section">
-        <div class="section-header">
-          <h3>标签管理</h3>
-        </div>
-        <div class="tag-content">
-          <TagSelector v-model="selectedTagIds" />
-        </div>
-        <div v-if="book.tags && book.tags.length > 0" class="current-tags">
-          <h4>当前标签</h4>
-          <TagList :tags="book.tags" />
         </div>
       </section>
     </div>
@@ -852,6 +893,11 @@ watch(
   color: var(--color-text-secondary);
   margin: 0;
   text-align: center;
+}
+
+/* 标签区域样式 */
+.tag-section {
+  margin-top: 0;
 }
 
 @media (max-width: 640px) {

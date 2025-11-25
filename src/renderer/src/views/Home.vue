@@ -127,7 +127,11 @@ async function handleBatchDelete(): Promise<void> {
     const count = await bookStore.batchDeleteBooks(selectedBooks.value)
     selectedBooks.value = []
     selectionMode.value = false
-    ElMessage.success(`已成功删除 ${count} 本书籍`)
+    if (count === 0) {
+      ElMessage.warning('没有找到要删除的书籍，可能已被删除')
+    } else {
+      ElMessage.success(`已成功删除 ${count} 本书籍`)
+    }
   } catch (error: any) {
     if (error !== 'cancel') {
       ElMessage.error('批量删除失败')

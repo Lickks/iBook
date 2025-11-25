@@ -164,11 +164,14 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
         :submitting="submitting"
         submit-label="保存书籍"
         @submit="handleSubmit"
-      />
-      <div class="tag-section">
-        <h3 class="section-title">标签（可选）</h3>
-        <TagSelector v-model="selectedTagIds" />
-      </div>
+      >
+        <template #tags>
+          <div class="tag-field">
+            <span class="field-label">标签（可选）</span>
+            <TagSelector v-model="selectedTagIds" />
+          </div>
+        </template>
+      </BookForm>
     </div>
     <div v-else class="network-panel">
       <NetworkSearch :importing="importing" @import="handleImportFromSearch" />
@@ -248,17 +251,18 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
   color: var(--color-text-tertiary);
 }
 
-.tag-section {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid var(--color-border);
+.tag-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  grid-column: 1 / -1;
+  margin-top: 8px;
 }
 
-.section-title {
-  font-size: 16px;
-  font-weight: 600;
+.field-label {
+  font-weight: 500;
   color: var(--color-text-primary);
-  margin: 0 0 12px;
+  font-size: 13px;
 }
 
 @media (max-width: 640px) {

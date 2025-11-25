@@ -184,6 +184,9 @@ function removeCover(): void {
             </select>
           </label>
         </div>
+
+        <!-- 标签选择器插槽 -->
+        <slot name="tags"></slot>
       </div>
 
       <!-- 右侧：封面区域 -->

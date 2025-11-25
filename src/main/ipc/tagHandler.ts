@@ -118,7 +118,7 @@ export function setupTagHandlers(): void {
         if (!success) {
           return {
             success: false,
-            error: '添加标签失败，可能标签已存在'
+            error: '添加标签失败'
           }
         }
         return { success: true }

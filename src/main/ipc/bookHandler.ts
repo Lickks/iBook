@@ -71,22 +71,129 @@ export function setupBookHandlers(): void {
 
   /**
    * 批量删除书籍
+   * 复用单本删除接口，逐个删除以确保数据一致性
    */
   ipcMain.handle('book:deleteBatch', async (_event: IpcMainInvokeEvent, ids: number[]) => {
     try {
-      if (!ids || ids.length === 0) {
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
         return {
           success: false,
           error: '请选择要删除的书籍'
         }
       }
-      const count = databaseService.deleteBooks(ids)
-      return { success: true, data: count }
+      
+      // 验证ID数组中的每个元素都是有效的数字
+      const validIds = ids.filter(id => typeof id === 'number' && id > 0 && Number.isInteger(id))
+      if (validIds.length === 0) {
+        return {
+          success: false,
+          error: '无效的书籍ID'
+        }
+      }
+      
+      // 如果有效ID数量少于原始ID数量，记录警告
+      if (validIds.length < ids.length) {
+        console.warn(`批量删除书籍: 原始ID数量 ${ids.length}，有效ID数量 ${validIds.length}，已过滤无效ID`)
+      }
+      
+      // 复用单本删除接口，逐个删除
+      let successCount = 0
+      const failedIds: number[] = []
+      
+      console.log(`开始批量删除书籍，共 ${validIds.length} 本`)
+      
+      for (const id of validIds) {
+        try {
+          // 直接调用单本删除方法，复用其逻辑（包括缓存清理等）
+          const deleteResult = databaseService.deleteBook(id)
+          if (deleteResult) {
+            successCount++
+          } else {
+            // 书籍不存在或已被删除，记录但不视为错误
+            failedIds.push(id)
+          }
+        } catch (error: any) {
+          // 单个删除失败不影响其他删除操作
+          failedIds.push(id)
+          // 确保错误信息是可序列化的字符串
+          const errorMsg = typeof error?.message === 'string' 
+            ? error.message 
+            : typeof error === 'string' 
+              ? error 
+              : '未知错误'
+          console.error(`删除书籍 ID ${id} 失败: ${errorMsg}`)
+        }
+      }
+      
+      console.log(`批量删除完成: 成功 ${successCount} 本，失败 ${failedIds.length} 本`)
+      
+      // 如果所有删除都失败，返回错误
+      if (successCount === 0) {
+        const errorMsg = failedIds.length === validIds.length 
+          ? `所有书籍删除失败，可能书籍不存在或已被删除`
+          : `没有成功删除任何书籍`
+        return {
+          success: false,
+          error: errorMsg
+        }
+      }
+      
+      // 如果有部分删除失败，记录警告但不影响整体成功
+      if (failedIds.length > 0) {
+        console.warn(`批量删除书籍: 部分失败，成功 ${successCount} 本，失败 ${failedIds.length} 本`)
+      }
+      
+      // 至少成功删除了一本，返回成功
+      // 确保返回的数据是完全可序列化的基本类型
+      const result = {
+        success: true as const,
+        data: successCount
+      }
+      
+      // 验证返回值可序列化
+      try {
+        JSON.stringify(result)
+      } catch (e) {
+        console.error('返回值序列化失败:', e)
+        return {
+          success: false,
+          error: '返回值序列化失败'
+        }
+      }
+      
+      return result
     } catch (error: any) {
-      console.error('批量删除书籍失败:', error)
-      return {
-        success: false,
-        error: error?.message || '批量删除书籍失败'
+      // 捕获所有未预期的异常（如数据库连接问题等）
+      // 确保错误信息是可序列化的字符串
+      let errorMessage = '批量删除书籍失败'
+      try {
+        if (typeof error?.message === 'string') {
+          errorMessage = error.message
+        } else if (typeof error === 'string') {
+          errorMessage = error
+        }
+      } catch (e) {
+        // 忽略错误信息提取失败
+      }
+      
+      console.error('批量删除书籍时发生未预期的异常:', errorMessage)
+      
+      // 确保返回值是完全可序列化的
+      const result = {
+        success: false as const,
+        error: `批量删除书籍失败: ${errorMessage}`
+      }
+      
+      // 验证返回值可序列化
+      try {
+        JSON.stringify(result)
+        return result
+      } catch (e) {
+        // 如果序列化失败，返回最简单的错误信息
+        return {
+          success: false,
+          error: '批量删除书籍失败'
+        }
       }
     }
   })
