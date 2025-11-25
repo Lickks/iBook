@@ -251,10 +251,60 @@ async function performBatchSearch(): Promise<void> {
     try {
       const results = await batchSearchYoushu(keywords)
       
-      // 根据结果更新对应的预览项
-      results.forEach((result, index) => {
-        const item = previewItems.value[index]
-        if (!item) return
+      // 验证结果数量
+      if (!results || results.length === 0) {
+        console.error('批量搜索返回空结果')
+        previewItems.value.forEach(item => {
+          item.loading = false
+          item.searchError = '批量搜索返回空结果'
+        })
+        return
+      }
+      
+      // 创建一个映射，根据 keyword 快速查找对应的预览项
+      // 注意：批量搜索API返回的 keyword 是经过 trim 的原始关键词
+      // 而 item.searchKeyword 是经过 filterTitleForSearch 处理后的关键词
+      // 所以我们需要同时匹配原始关键词和处理后的关键词
+      const itemMap = new Map<string, PreviewItem>()
+      const originalKeywordMap = new Map<string, PreviewItem>()
+      
+      previewItems.value.forEach((item, index) => {
+        // 使用处理后的关键词作为主键
+        itemMap.set(item.searchKeyword, item)
+        // 同时使用原始关键词（trimmed）作为备用键
+        const originalKeyword = keywords[index]?.trim()
+        if (originalKeyword) {
+          originalKeywordMap.set(originalKeyword, item)
+        }
+      })
+      
+      // 根据结果更新对应的预览项（使用 keyword 匹配）
+      results.forEach((result) => {
+        if (!result || !result.keyword) {
+          console.warn('批量搜索结果缺少 keyword 字段:', result)
+          return
+        }
+        
+        // 先尝试用 result.keyword 匹配（这是 trim 后的原始关键词）
+        let item = originalKeywordMap.get(result.keyword.trim())
+        
+        // 如果没找到，尝试用处理后的关键词匹配
+        if (!item) {
+          item = itemMap.get(result.keyword.trim())
+        }
+        
+        // 如果还是没找到，尝试在所有预览项中查找匹配的 searchKeyword
+        if (!item) {
+          item = previewItems.value.find(i => 
+            i.searchKeyword === result.keyword.trim() || 
+            i.originalTitle === result.keyword.trim()
+          )
+        }
+        
+        if (!item) {
+          console.warn(`未找到关键词 "${result.keyword}" 对应的预览项`)
+          return
+        }
         
         if (result.success && result.data) {
           item.searchResult = result.data
@@ -265,8 +315,20 @@ async function performBatchSearch(): Promise<void> {
         }
         item.loading = false
       })
+      
+      // 确保所有预览项都被处理（处理可能缺失的结果）
+      previewItems.value.forEach(item => {
+        if (item.loading) {
+          // 如果还在加载状态，说明没有对应的结果
+          item.loading = false
+          if (!item.searchResult) {
+            item.searchError = '未找到搜索结果'
+          }
+        }
+      })
     } catch (error: any) {
       console.error('批量搜索错误:', error)
+      ElMessage.error(error?.message || '批量搜索失败，请检查网络连接')
       // 如果批量搜索失败，标记所有项为失败
       previewItems.value.forEach(item => {
         item.loading = false
@@ -447,50 +509,56 @@ async function handleBatchImport(): Promise<void> {
       try {
         // 准备书籍数据
         const searchResult = item.searchResult
-        if (!searchResult) {
-          failCount++
-          continue
-        }
-
-        // 使用已下载的封面或电子书封面
-        let coverUrl = item.ebookCover || coverMap.get(item) || undefined
-        if (!coverUrl && searchResult.cover) {
-          coverUrl = searchResult.cover
-        }
-
-        // 获取详细信息（包括完整的简介）
-        let platform = searchResult.platform
-        let category = searchResult.category
-        let description = searchResult.description // 默认使用列表页的简介
         
-        // 使用已获取的详情页信息
-        const detail = detailMap.get(item)
-        if (detail) {
-          platform = detail.platform || platform
-          category = category || detail.category
-          // 优先使用详情页的完整简介（从"内容介绍"标签页提取）
-          // 只要详情页有简介，就使用详情页的简介（即使列表页也有简介）
-          if (detail.description && detail.description.trim().length > 10) {
-            description = detail.description
-            console.log(`书籍 "${item.originalTitle}" 使用详情页简介，长度: ${description.length}`)
-          } else {
-            console.warn(`书籍 "${item.originalTitle}" 详情页没有提取到简介，使用列表页简介`)
+        let bookInput: BookInput
+        
+        if (!searchResult) {
+          // 网络检索失败，只使用书名创建书籍
+          bookInput = {
+            title: item.originalTitle, // 使用原始书名
+            readingStatus: 'unread'
           }
-        }
+        } else {
+          // 使用已下载的封面或电子书封面
+          let coverUrl = item.ebookCover || coverMap.get(item) || undefined
+          if (!coverUrl && searchResult.cover) {
+            coverUrl = searchResult.cover
+          }
 
-        // 创建书籍
-        const bookInput: BookInput = {
-          title: item.originalTitle, // 使用原始书名
-          author: searchResult.author,
-          coverUrl,
-          platform,
-          category,
-          description,
-          wordCountDisplay: searchResult.wordCount ? Math.round(searchResult.wordCount / 1000) * 1000 : undefined,
-          wordCountSearch: searchResult.wordCount,
-          wordCountSource: 'search',
-          sourceUrl: searchResult.sourceUrl,
-          readingStatus: 'unread'
+          // 获取详细信息（包括完整的简介）
+          let platform = searchResult.platform
+          let category = searchResult.category
+          let description = searchResult.description // 默认使用列表页的简介
+          
+          // 使用已获取的详情页信息
+          const detail = detailMap.get(item)
+          if (detail) {
+            platform = detail.platform || platform
+            category = category || detail.category
+            // 优先使用详情页的完整简介（从"内容介绍"标签页提取）
+            // 只要详情页有简介，就使用详情页的简介（即使列表页也有简介）
+            if (detail.description && detail.description.trim().length > 10) {
+              description = detail.description
+              console.log(`书籍 "${item.originalTitle}" 使用详情页简介，长度: ${description.length}`)
+            } else {
+              console.warn(`书籍 "${item.originalTitle}" 详情页没有提取到简介，使用列表页简介`)
+            }
+          }
+
+          // 创建书籍（有完整信息）
+          bookInput = {
+            title: item.originalTitle, // 使用原始书名
+            author: searchResult.author,
+            coverUrl,
+            platform,
+            category,
+            description,
+            wordCountDisplay: searchResult.wordCount ? Math.round(searchResult.wordCount / 1000) * 1000 : undefined,
+            wordCountSearch: searchResult.wordCount,
+            wordCountSource: 'search',
+            sourceUrl: searchResult.sourceUrl,
+            readingStatus: 'unread'
+          }
         }
 
         const createResult = await bookStore.createBook(bookInput)

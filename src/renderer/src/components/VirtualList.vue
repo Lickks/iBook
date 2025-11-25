@@ -42,12 +42,13 @@ function handleScroll(event: Event): void {
   scrollTop.value = target.scrollTop
 }
 
+// 监听 items 变化，确保重新计算可见范围
 watch(
-  () => visibleRange.value,
-  (range) => {
-    emit('render', visibleItems.value, range.start, range.end)
+  () => [props.items.length, visibleRange.value],
+  () => {
+    emit('render', visibleItems.value, visibleRange.value.start, visibleRange.value.end)
   },
-  { immediate: true }
+  { immediate: true, deep: false }
 )
 
 onMounted(() => {
