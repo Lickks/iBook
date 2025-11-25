@@ -24,6 +24,30 @@
         <div class="section-content">
           <div class="setting-item">
             <div class="setting-label">
+              <span class="label-text">显示模式</span>
+              <span class="label-desc">选择简约或经典显示模式</span>
+            </div>
+            <div class="setting-control">
+              <button
+                class="view-mode-btn"
+                :class="{ active: displayModeStore.isSimpleMode }"
+                type="button"
+                @click="displayModeStore.setDisplayMode('simple')"
+              >
+                <span>📋 简约</span>
+              </button>
+              <button
+                class="view-mode-btn"
+                :class="{ active: displayModeStore.isClassicMode }"
+                type="button"
+                @click="displayModeStore.setDisplayMode('classic')"
+              >
+                <span>📚 经典</span>
+              </button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label">
               <span class="label-text">视图模式</span>
               <span class="label-desc">选择书籍列表的显示方式</span>
             </div>
@@ -54,9 +78,11 @@
 
 <script setup lang="ts">
 import { useUIStore } from '../stores/ui'
+import { useDisplayModeStore } from '../stores/displayMode'
 import ThemeSelector from '../components/ThemeSelector.vue'
 
 const uiStore = useUIStore()
+const displayModeStore = useDisplayModeStore()
 </script>
 
 <style scoped>

@@ -8,7 +8,6 @@ import { READING_STATUS_LABEL } from '../constants'
 import SearchBar from '../components/SearchBar.vue'
 import StatusStats from '../components/StatusStats.vue'
 import BookCard from '../components/BookCard.vue'
-import DisplayModeToggle from '../components/DisplayModeToggle.vue'
 import FilterBar from '../components/FilterBar.vue'
 import SkeletonLoader from '../components/SkeletonLoader.vue'
 import VirtualList from '../components/VirtualList.vue'
@@ -56,10 +55,6 @@ function setViewMode(mode: 'grid' | 'list'): void {
 
 function goToAdd(): void {
   router.push('/add')
-}
-
-function goToBatchImport(): void {
-  router.push('/batch-import')
 }
 
 function handleStatusClick(status: string | null): void {
@@ -187,15 +182,6 @@ function openBatchTagDialog(): void {
       </div>
       <div class="section-actions">
         <div class="action-group">
-          <DisplayModeToggle />
-          <button
-            type="button"
-            class="secondary-btn"
-            @click="toggleSelectionMode"
-            :class="{ active: selectionMode }"
-          >
-            {{ selectionMode ? '取消选择' : '批量管理' }}
-          </button>
           <div class="view-switcher">
             <button
               type="button"
@@ -212,16 +198,19 @@ function openBatchTagDialog(): void {
               列表
             </button>
           </div>
-        </div>
-        <div class="header-actions">
-          <button class="ghost-btn" type="button" @click="goToBatchImport">
-            批量导入
+          <button
+            type="button"
+            class="secondary-btn"
+            @click="toggleSelectionMode"
+            :class="{ active: selectionMode }"
+          >
+            {{ selectionMode ? '取消选择' : '批量管理' }}
           </button>
-          <button class="primary-btn" type="button" @click="goToAdd">
-            + 添加书籍
-          </button>
         </div>
-        </div>
+        <button class="primary-btn" type="button" @click="goToAdd">
+          + 添加书籍
+        </button>
+      </div>
     </header>
 
     <!-- 状态统计 -->
@@ -413,14 +402,14 @@ h2 {
 .section-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
 .action-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -469,28 +458,6 @@ h2 {
   color: var(--color-accent);
 }
 
-.header-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.ghost-btn {
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-secondary);
-  border-radius: 999px;
-  padding: 10px 22px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.ghost-btn:hover {
-  background: var(--color-bg-soft);
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
 
 .primary-btn {
   background: var(--color-accent);

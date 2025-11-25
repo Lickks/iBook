@@ -11,7 +11,7 @@ const router = useRouter()
 
 const navItems = [
   { name: 'Home', label: '书籍列表', icon: '📚', path: '/' },
-  { name: 'AddBook', label: '添加书籍', icon: '✍️', path: '/add' },
+  { name: 'BatchImport', label: '批量导入', icon: '📦', path: '/batch-import' },
   { name: 'TagManagement', label: '标签管理', icon: '🏷️', path: '/tags' },
   { name: 'Statistics', label: '统计分析', icon: '📊', path: '/statistics' },
   { name: 'Settings', label: '设置', icon: '⚙️', path: '/settings' }
@@ -27,10 +27,6 @@ async function ensureBooksLoaded(): Promise<void> {
   if (!bookStore.books.length) {
     await bookStore.fetchBooks()
   }
-}
-
-function goToAddPage(): void {
-  router.push('/add')
 }
 
 onMounted(() => {
@@ -58,10 +54,6 @@ onMounted(() => {
           <span class="label">{{ item.label }}</span>
         </RouterLink>
       </nav>
-
-      <button class="primary-btn" type="button" @click="goToAddPage">
-        + 添加书籍
-      </button>
 
       <div class="sidebar-footer">
         <button class="ghost-btn" type="button" @click="uiStore.toggleSidebar">
