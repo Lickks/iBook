@@ -3,7 +3,6 @@ import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useBookStore } from '../stores/book'
 import { useTagStore } from '../stores/tag'
 import { SORT_BY, SORT_BY_LABEL, SORT_ORDER, SORT_ORDER_LABEL } from '../constants'
-import TagList from './TagList.vue'
 
 const bookStore = useBookStore()
 const tagStore = useTagStore()
@@ -63,6 +62,10 @@ const selectedTagObjects = computed(() => {
   return tagStore.tags.filter(tag => selectedTags.value.includes(tag.id))
 })
 
+const availableTagObjects = computed(() => {
+  return tagStore.tags.filter(tag => !selectedTags.value.includes(tag.id))
+})
+
 onMounted(async () => {
   if (tagStore.tags.length === 0) {
     await tagStore.fetchTags()
@@ -113,24 +116,49 @@ function clearAllFilters(): void {
     <div class="filter-group filter-group--tags">
       <label class="filter-label">标签</label>
       <div class="tag-filter">
-        <div v-if="selectedTagObjects.length > 0" class="selected-tags">
-          <TagList :tags="selectedTagObjects" :size="'small'" :clickable="true" @tag-click="removeTag" />
-        </div>
-        <div class="tag-options">
-          <button
-            v-for="tag in tagStore.tags.filter(t => !selectedTags.includes(t.id))"
-            :key="tag.id"
-            class="tag-option-btn"
-            type="button"
-            :style="{
-              '--tag-color': tag.color || '#909399',
-              '--tag-bg': `${tag.color || '#909399'}15`
-            }"
-            @click="toggleTag(tag.id)"
-          >
-            <span class="tag-dot" />
-            <span>{{ tag.tagName }}</span>
-          </button>
+        <div class="tag-filter-content">
+          <!-- 已选标签 -->
+          <div v-if="selectedTagObjects.length > 0" class="selected-tags-section">
+            <span
+              v-for="tag in selectedTagObjects"
+              :key="tag.id"
+              class="tag-chip tag-chip--selected"
+              :style="{
+                '--tag-color': tag.color || '#909399',
+                '--tag-bg': `${tag.color || '#909399'}20`,
+                '--tag-border': `${tag.color || '#909399'}60`
+              }"
+              @click="removeTag(tag.id)"
+            >
+              <span class="tag-dot" />
+              <span class="tag-name">{{ tag.tagName }}</span>
+              <span class="tag-remove">×</span>
+            </span>
+          </div>
+          
+          <!-- 可选标签 -->
+          <div v-if="availableTagObjects.length > 0" class="available-tags-section">
+            <button
+              v-for="tag in availableTagObjects"
+              :key="tag.id"
+              class="tag-chip tag-chip--available"
+              type="button"
+              :style="{
+                '--tag-color': tag.color || '#909399',
+                '--tag-bg': `${tag.color || '#909399'}10`,
+                '--tag-border': `${tag.color || '#909399'}30`
+              }"
+              @click="toggleTag(tag.id)"
+            >
+              <span class="tag-dot" />
+              <span class="tag-name">{{ tag.tagName }}</span>
+            </button>
+          </div>
+          
+          <!-- 空状态 -->
+          <div v-if="selectedTagObjects.length === 0 && availableTagObjects.length === 0" class="tag-empty-state">
+            <span class="empty-text">暂无标签</span>
+          </div>
         </div>
       </div>
     </div>
@@ -215,40 +243,87 @@ function clearAllFilters(): void {
 }
 
 .tag-filter {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  width: 100%;
 }
 
-.selected-tags {
-  margin-bottom: 4px;
-}
-
-.tag-options {
+.tag-filter-content {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 0;
 }
 
-.tag-option-btn {
+.selected-tags-section {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.available-tags-section {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.tag-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 5px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.2s ease;
   border: 1px solid var(--tag-border, var(--color-border));
-  border-radius: 12px;
   background: var(--tag-bg, var(--color-bg-muted));
   color: var(--tag-color, var(--color-text-primary));
-  font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  user-select: none;
 }
 
-.tag-option-btn:hover {
+.tag-chip--selected {
+  background: var(--tag-bg);
+  border-color: var(--tag-border);
+  color: var(--tag-color);
+  padding-right: 6px;
+}
+
+.tag-chip--available {
+  background: var(--tag-bg);
+  border-color: var(--tag-border);
+  color: var(--tag-color);
+  opacity: 0.7;
+}
+
+.tag-chip--available:hover {
+  opacity: 1;
   background: var(--tag-color);
   color: white;
+  border-color: var(--tag-color);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px var(--tag-border, rgba(0, 0, 0, 0.1));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tag-chip--available:hover .tag-dot {
+  background: white;
+}
+
+.tag-chip--selected:hover {
+  background: var(--tag-color);
+  color: white;
+  border-color: var(--tag-color);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tag-chip--selected:hover .tag-dot,
+.tag-chip--selected:hover .tag-remove {
+  color: white;
 }
 
 .tag-dot {
@@ -257,10 +332,43 @@ function clearAllFilters(): void {
   border-radius: 50%;
   background: var(--tag-color);
   flex-shrink: 0;
+  transition: all 0.2s ease;
 }
 
-.tag-option-btn:hover .tag-dot {
-  background: white;
+.tag-name {
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.tag-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 2px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--tag-color);
+  opacity: 0.6;
+  transition: all 0.2s ease;
+  border-radius: 50%;
+}
+
+.tag-chip--selected:hover .tag-remove {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.tag-empty-state {
+  padding: 8px 0;
+  width: 100%;
+}
+
+.empty-text {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font-style: italic;
 }
 
 .filter-actions {
