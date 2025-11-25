@@ -15,3 +15,77 @@ export function filterTitleForSearch(title: string): string {
   return title.replace(/[（(][^）)]*[）)]/g, '').trim()
 }
 
+/**
+ * 并发控制：限制同时执行的异步任务数量
+ * @param tasks 任务数组，每个任务返回 Promise
+ * @param concurrency 最大并发数，默认 5
+ * @param onProgress 进度回调函数，参数为 (已完成数, 总数)
+ * @returns Promise，所有任务完成后返回结果数组
+ */
+export async function pLimit<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency: number = 5,
+  onProgress?: (completed: number, total: number) => void
+): Promise<T[]> {
+  const results: T[] = []
+  let completed = 0
+  const total = tasks.length
+
+  // 如果任务数量为0，直接返回
+  if (total === 0) {
+    return results
+  }
+
+  // 创建执行队列
+  const queue: Array<() => Promise<void>> = []
+  let running = 0
+
+  // 执行单个任务
+  const runTask = async (task: () => Promise<T>, index: number): Promise<void> => {
+    running++
+    try {
+      const result = await task()
+      results[index] = result
+      completed++
+      if (onProgress) {
+        onProgress(completed, total)
+      }
+    } catch (error) {
+      // 任务失败时，将错误作为结果
+      results[index] = error as T
+      completed++
+      if (onProgress) {
+        onProgress(completed, total)
+      }
+    } finally {
+      running--
+      // 执行下一个任务
+      if (queue.length > 0) {
+        const nextTask = queue.shift()
+        if (nextTask) {
+          nextTask()
+        }
+      }
+    }
+  }
+
+  // 创建所有任务的执行函数
+  const taskPromises = tasks.map((task, index) => {
+    return () => runTask(task, index)
+  })
+
+  // 启动初始批次
+  const initialBatch = taskPromises.slice(0, Math.min(concurrency, total))
+  const remainingTasks = taskPromises.slice(concurrency)
+
+  // 将剩余任务加入队列
+  remainingTasks.forEach(task => {
+    queue.push(task)
+  })
+
+  // 执行初始批次
+  await Promise.all(initialBatch.map(task => task()))
+
+  return results
+}
+

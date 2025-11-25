@@ -5,7 +5,7 @@ import { useBookStore } from '../stores/book'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { SearchResult, BookInput } from '../types'
 import { batchSearchYoushu, downloadCover, fetchYoushuDetail, searchYoushu } from '../api/search'
-import { filterTitleForSearch } from '../utils'
+import { filterTitleForSearch, pLimit } from '../utils'
 import * as tagAPI from '../api/tag'
 
 // 工具函数：从文件路径提取文件名
@@ -239,30 +239,46 @@ async function performBatchSearch(): Promise<void> {
       return
     }
     
-    // 串行搜索，实时更新每个项目的状态
-    for (let i = 0; i < previewItems.value.length; i++) {
-      const item = previewItems.value[i]
+    // 初始化所有项为加载状态
+    previewItems.value.forEach(item => {
       item.loading = true
-      
-      try {
-        const results = await batchSearchYoushu([item.searchKeyword])
-        const result = results[0]
-        
-        if (result && result.success && result.data) {
-          item.searchResult = result.data
-          item.searchError = undefined
-        } else {
+      item.searchResult = undefined
+      item.searchError = undefined
+    })
+    
+    // 创建搜索任务数组
+    const searchTasks = previewItems.value.map((item, index) => {
+      return async () => {
+        try {
+          const results = await batchSearchYoushu([item.searchKeyword])
+          const result = results[0]
+          
+          if (result && result.success && result.data) {
+            item.searchResult = result.data
+            item.searchError = undefined
+          } else {
+            item.searchResult = undefined
+            item.searchError = result?.error || '搜索失败'
+          }
+        } catch (error: any) {
+          console.error(`搜索 "${item.searchKeyword}" 失败:`, error)
           item.searchResult = undefined
-          item.searchError = result?.error || '搜索失败'
+          item.searchError = error?.message || '搜索失败'
+        } finally {
+          item.loading = false
         }
-      } catch (error: any) {
-        console.error(`搜索 "${item.searchKeyword}" 失败:`, error)
-        item.searchResult = undefined
-        item.searchError = error?.message || '搜索失败'
-      } finally {
-        item.loading = false
       }
-    }
+    })
+    
+    // 使用并发控制，同时最多5个请求
+    await pLimit(
+      searchTasks,
+      5, // 并发数：5
+      (completed, total) => {
+        // 可以在这里更新进度，如果需要的话
+        console.log(`搜索进度: ${completed}/${total}`)
+      }
+    )
   } catch (error: any) {
     console.error('批量搜索错误:', error)
     ElMessage.error(error?.message || '批量搜索失败')

@@ -92,6 +92,7 @@ export function setupSearchHandlers(): void {
 
   /**
    * 批量搜索书籍（取每个关键词的第一个结果）
+   * 使用并发控制，同时最多处理5个请求
    */
   ipcMain.handle(
     'search:batchSearch',
@@ -111,46 +112,73 @@ export function setupSearchHandlers(): void {
           error?: string
         }> = []
 
-        // 串行处理，避免过多并发请求
-        for (const keyword of keywords) {
-          try {
-            const trimmedKeyword = keyword.trim()
-            if (!trimmedKeyword) {
-              results.push({
-                keyword,
-                success: false,
-                error: '关键词为空'
-              })
-              continue
-            }
+        // 并发控制：同时最多5个请求
+        const concurrency = 5
+        
+        // 创建搜索任务
+        const tasks = keywords.map((keyword, index) => {
+          return async (): Promise<{
+            index: number
+            keyword: string
+            success: boolean
+            data?: any
+            error?: string
+          }> => {
+            try {
+              const trimmedKeyword = keyword.trim()
+              if (!trimmedKeyword) {
+                return {
+                  index,
+                  keyword,
+                  success: false,
+                  error: '关键词为空'
+                }
+              }
 
-            const searchResults = await spiderService.searchYoushu(trimmedKeyword)
-            if (searchResults && searchResults.length > 0) {
-              results.push({
-                keyword,
-                success: true,
-                data: searchResults[0] // 取第一个结果
-              })
-            } else {
-              results.push({
+              const searchResults = await spiderService.searchYoushu(trimmedKeyword)
+              if (searchResults && searchResults.length > 0) {
+                return {
+                  index,
+                  keyword,
+                  success: true,
+                  data: searchResults[0] // 取第一个结果
+                }
+              } else {
+                return {
+                  index,
+                  keyword,
+                  success: false,
+                  error: '未找到搜索结果'
+                }
+              }
+            } catch (error: unknown) {
+              const message = error instanceof Error ? error.message : '搜索失败'
+              return {
+                index,
                 keyword,
                 success: false,
-                error: '未找到搜索结果'
-              })
+                error: message
+              }
             }
-          } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : '搜索失败'
-            results.push({
-              keyword,
-              success: false,
-              error: message
-            })
           }
+        })
+
+        // 分批并发执行
+        for (let i = 0; i < tasks.length; i += concurrency) {
+          const batch = tasks.slice(i, i + concurrency)
+          const batchResults = await Promise.all(batch.map(task => task()))
+          results.push(...batchResults)
         }
+
+        // 按原始顺序排序（虽然应该已经是顺序的，但为了确保）
+        results.sort((a, b) => a.index - b.index)
+
+        // 移除 index 字段
+        const finalResults = results.map(({ index, ...rest }) => rest)
 
         return {
           success: true,
-          data: results
+          data: finalResults
         }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : '批量搜索失败'
