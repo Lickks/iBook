@@ -36,3 +36,19 @@ export async function fetchYoushuDetail(sourceUrl: string): Promise<SearchDetail
   }
   throw new Error(response.error || '获取作品详情失败')
 }
+
+/**
+ * 批量搜索书籍
+ */
+export async function batchSearchYoushu(keywords: string[]): Promise<Array<{
+  keyword: string
+  success: boolean
+  data?: SearchResult
+  error?: string
+}>> {
+  const response = await window.api.search.batchSearch(keywords)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '批量搜索失败')
+}

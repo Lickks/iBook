@@ -28,6 +28,7 @@ const api = {
   // 文档操作
   document: {
     selectFile: (): Promise<ApiResponse<string>> => ipcRenderer.invoke('document:selectFile'),
+    selectFiles: (): Promise<ApiResponse<string[]>> => ipcRenderer.invoke('document:selectFiles'),
     upload: (filePath: string, bookId: number): Promise<ApiResponse> =>
       ipcRenderer.invoke('document:upload', filePath, bookId),
     delete: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('document:delete', id),
@@ -47,7 +48,14 @@ const api = {
     detail: (sourceUrl: string): Promise<ApiResponse<SearchDetail>> =>
       ipcRenderer.invoke('search:youshuDetail', sourceUrl),
     downloadCover: (url: string, title?: string): Promise<ApiResponse<string>> =>
-      ipcRenderer.invoke('search:downloadCover', { url, title })
+      ipcRenderer.invoke('search:downloadCover', { url, title }),
+    batchSearch: (keywords: string[]): Promise<ApiResponse> =>
+      ipcRenderer.invoke('search:batchSearch', keywords)
+  },
+  // 电子书操作
+  ebook: {
+    extractCover: (filePath: string): Promise<ApiResponse<string | null>> =>
+      ipcRenderer.invoke('ebook:extractCover', filePath)
   },
 
   // 统计分析操作

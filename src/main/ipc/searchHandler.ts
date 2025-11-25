@@ -89,4 +89,106 @@ export function setupSearchHandlers(): void {
       }
     }
   )
+
+  /**
+   * 批量搜索书籍（取每个关键词的第一个结果）
+   */
+  ipcMain.handle(
+    'search:batchSearch',
+    async (_event: IpcMainInvokeEvent, keywords: string[]) => {
+      try {
+        if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
+          return {
+            success: false,
+            error: '搜索关键词列表不能为空'
+          }
+        }
+
+        const results: Array<{
+          keyword: string
+          success: boolean
+          data?: any
+          error?: string
+        }> = []
+
+        // 串行处理，避免过多并发请求
+        for (const keyword of keywords) {
+          try {
+            const trimmedKeyword = keyword.trim()
+            if (!trimmedKeyword) {
+              results.push({
+                keyword,
+                success: false,
+                error: '关键词为空'
+              })
+              continue
+            }
+
+            const searchResults = await spiderService.searchYoushu(trimmedKeyword)
+            if (searchResults && searchResults.length > 0) {
+              results.push({
+                keyword,
+                success: true,
+                data: searchResults[0] // 取第一个结果
+              })
+            } else {
+              results.push({
+                keyword,
+                success: false,
+                error: '未找到搜索结果'
+              })
+            }
+          } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : '搜索失败'
+            results.push({
+              keyword,
+              success: false,
+              error: message
+            })
+          }
+        }
+
+        return {
+          success: true,
+          data: results
+        }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : '批量搜索失败'
+        console.error('批量搜索失败:', error)
+        return {
+          success: false,
+          error: message
+        }
+      }
+    }
+  )
+
+  /**
+   * 从电子书文件中提取封面
+   */
+  ipcMain.handle(
+    'ebook:extractCover',
+    async (_event: IpcMainInvokeEvent, filePath: string) => {
+      try {
+        if (!filePath) {
+          return {
+            success: false,
+            error: '文件路径不能为空'
+          }
+        }
+        const coverUrl = await coverService.extractFromEbook(filePath)
+        return {
+          success: true,
+          data: coverUrl
+        }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : '提取封面失败'
+        console.error('提取电子书封面失败:', error)
+        return {
+          success: false,
+          error: message
+        }
+      }
+    }
+  )
 }

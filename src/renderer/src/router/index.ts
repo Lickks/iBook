@@ -32,6 +32,11 @@ const router = createRouter({
       path: '/tags',
       name: 'TagManagement',
       component: () => import('../views/TagManagement.vue')
+    },
+    {
+      path: '/batch-import',
+      name: 'BatchImport',
+      component: () => import('../views/BatchImport.vue')
     }
   ]
 })

@@ -58,6 +58,10 @@ function goToAdd(): void {
   router.push('/add')
 }
 
+function goToBatchImport(): void {
+  router.push('/batch-import')
+}
+
 function handleStatusClick(status: string | null): void {
   selectedStatus.value = status
 }
@@ -209,9 +213,14 @@ function openBatchTagDialog(): void {
             </button>
           </div>
         </div>
-        <button class="primary-btn" type="button" @click="goToAdd">
-          + 添加书籍
-        </button>
+        <div class="header-actions">
+          <button class="ghost-btn" type="button" @click="goToBatchImport">
+            批量导入
+          </button>
+          <button class="primary-btn" type="button" @click="goToAdd">
+            + 添加书籍
+          </button>
+        </div>
         </div>
     </header>
 
@@ -457,6 +466,29 @@ h2 {
 
 .view-switcher button.active {
   background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.ghost-btn {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: 999px;
+  padding: 10px 22px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.ghost-btn:hover {
+  background: var(--color-bg-soft);
+  border-color: var(--color-accent);
   color: var(--color-accent);
 }
 

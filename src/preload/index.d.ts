@@ -18,6 +18,7 @@ declare global {
       }
       document: {
         selectFile: () => Promise<ApiResponse<string>>
+        selectFiles: () => Promise<ApiResponse<string[]>>
         upload: (filePath: string, bookId: number) => Promise<ApiResponse>
         delete: (id: number) => Promise<ApiResponse>
         open: (fileName: string) => Promise<ApiResponse>
@@ -29,6 +30,10 @@ declare global {
         youshu: (keyword: string) => Promise<ApiResponse<SearchResult[]>>
         detail: (sourceUrl: string) => Promise<ApiResponse<SearchDetail>>
         downloadCover: (url: string, title?: string) => Promise<ApiResponse<string>>
+        batchSearch: (keywords: string[]) => Promise<ApiResponse>
+      }
+      ebook: {
+        extractCover: (filePath: string) => Promise<ApiResponse<string | null>>
       }
       stats: {
         getOverview: () => Promise<ApiResponse>

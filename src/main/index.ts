@@ -4,6 +4,17 @@ import icon from '../../resources/icon.png?asset'
 
 // 检测是否为开发环境
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
+
+// 设置控制台编码为 UTF-8（修复 Windows 控制台中文乱码问题）
+if (process.platform === 'win32') {
+  try {
+    const { execSync } = require('child_process')
+    // 设置 Windows 控制台代码页为 UTF-8 (65001)
+    execSync('chcp 65001 >nul 2>&1', { encoding: 'utf8', stdio: 'ignore' })
+  } catch {
+    // 如果设置失败，忽略错误
+  }
+}
 import { databaseService } from './services/database'
 import { setupBookHandlers } from './ipc/bookHandler'
 import { setupDocumentHandlers } from './ipc/documentHandler'

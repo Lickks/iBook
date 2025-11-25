@@ -1,10 +1,11 @@
 import axios from 'axios'
 import { Jimp } from 'jimp'
 import { app } from 'electron'
-import { join } from 'path'
+import { join, extname } from 'path'
 import { access, mkdir } from 'fs/promises'
 import { constants } from 'fs'
 import { pathToFileURL } from 'url'
+import EPub from 'epub'
 
 interface DownloadOptions {
   title?: string
@@ -88,6 +89,141 @@ class CoverService {
       .slice(0, 40)
     const timestamp = Date.now()
     return `${safeTitle || 'cover'}-${timestamp}.jpg`
+  }
+
+  /**
+   * 从电子书文件中提取封面
+   * 支持 EPUB、MOBI、AZW、AZW3 格式
+   * @param filePath 电子书文件路径
+   * @returns 封面图片的 file:// URL，如果无法提取则返回 null
+   */
+  async extractFromEbook(filePath: string): Promise<string | null> {
+    try {
+      const ext = extname(filePath).toLowerCase()
+      
+      if (ext === '.epub') {
+        return await this.extractFromEpub(filePath)
+      }
+      // MOBI/AZW/AZW3 格式比较复杂，暂时不支持
+      // 如果需要支持，可以使用 mobi 库或 calibre 工具
+      
+      return null
+    } catch (error) {
+      console.warn('从电子书提取封面失败:', error)
+      return null
+    }
+  }
+
+  /**
+   * 从 EPUB 文件中提取封面
+   */
+  private async extractFromEpub(filePath: string): Promise<string | null> {
+    return new Promise((resolve) => {
+      try {
+        const epub = new EPub(filePath)
+
+        epub.on('error', () => {
+          resolve(null)
+        })
+
+        epub.on('end', async () => {
+          try {
+            // 尝试获取封面图片
+            const coverId = epub.metadata.cover
+            if (coverId) {
+              epub.getImage(coverId, async (err, imgBuffer) => {
+                if (err || !imgBuffer) {
+                  // 如果没有封面，尝试从 manifest 中查找
+                  const manifest = epub.manifest
+                  let found = false
+                  for (const key in manifest) {
+                    const item = manifest[key]
+                    if (item.properties === 'cover-image' || key.toLowerCase().includes('cover')) {
+                      found = true
+                      epub.getImage(item.href, async (err2, imgBuffer2) => {
+                        if (err2 || !imgBuffer2) {
+                          resolve(null)
+                        } else {
+                          try {
+                            const coverUrl = await this.saveCoverBuffer(imgBuffer2)
+                            resolve(coverUrl)
+                          } catch {
+                            resolve(null)
+                          }
+                        }
+                      })
+                      break
+                    }
+                  }
+                  if (!found) {
+                    resolve(null)
+                  }
+                } else {
+                  try {
+                    const coverUrl = await this.saveCoverBuffer(imgBuffer)
+                    resolve(coverUrl)
+                  } catch {
+                    resolve(null)
+                  }
+                }
+              })
+            } else {
+              // 没有封面ID，尝试从 manifest 中查找
+              const manifest = epub.manifest
+              let found = false
+              for (const key in manifest) {
+                const item = manifest[key]
+                if (item.properties === 'cover-image' || key.toLowerCase().includes('cover')) {
+                  found = true
+                  epub.getImage(item.href, async (err2, imgBuffer2) => {
+                    if (err2 || !imgBuffer2) {
+                      resolve(null)
+                    } else {
+                      try {
+                        const coverUrl = await this.saveCoverBuffer(imgBuffer2)
+                        resolve(coverUrl)
+                      } catch {
+                        resolve(null)
+                      }
+                    }
+                  })
+                  break
+                }
+              }
+              if (!found) {
+                resolve(null)
+              }
+            }
+          } catch (error) {
+            resolve(null)
+          }
+        })
+
+        epub.parse()
+      } catch (error) {
+        resolve(null)
+      }
+    })
+  }
+
+  /**
+   * 保存封面缓冲区为文件
+   */
+  private async saveCoverBuffer(buffer: Buffer): Promise<string> {
+    await this.ensureDirectory()
+    
+    const image = await Jimp.read(buffer)
+    const targetWidth = 640
+    if (image.getWidth() > targetWidth) {
+      image.resize(targetWidth, Jimp.AUTO)
+    }
+    image.quality(80)
+
+    const fileName = this.buildFileName('ebook-cover')
+    const filePath = join(this.getDownloadDir(), fileName)
+    await image.writeAsync(filePath)
+
+    return pathToFileURL(filePath).toString()
   }
 }
 

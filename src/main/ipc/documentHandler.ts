@@ -36,6 +36,33 @@ export function setupDocumentHandlers(): void {
   })
 
   /**
+   * 批量选择文件
+   */
+  ipcMain.handle('document:selectFiles', async (_event: IpcMainInvokeEvent) => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          { name: '文档文件', extensions: ['txt', 'epub', 'pdf', 'mobi', 'azw', 'azw3', 'docx', 'doc'] },
+          { name: '所有文件', extensions: ['*'] }
+        ]
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: false, error: '未选择文件' }
+      }
+
+      return { success: true, data: result.filePaths }
+    } catch (error: any) {
+      console.error('选择文件失败:', error)
+      return {
+        success: false,
+        error: error?.message || '选择文件失败'
+      }
+    }
+  })
+
+  /**
    * 上传文档（保存文件并创建记录）
    */
   ipcMain.handle(
