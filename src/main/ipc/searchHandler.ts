@@ -112,8 +112,8 @@ export function setupSearchHandlers(): void {
           error?: string
         }> = []
 
-        // 并发控制：同时最多5个请求
-        const concurrency = 5
+        // 并发控制：同时最多15个请求（提高批量搜索速度）
+        const concurrency = 15
         
         // 创建搜索任务
         const tasks = keywords.map((keyword, index) => {

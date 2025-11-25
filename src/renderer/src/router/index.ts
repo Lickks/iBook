@@ -37,6 +37,11 @@ const router = createRouter({
       path: '/batch-import',
       name: 'BatchImport',
       component: () => import('../views/BatchImport.vue')
+    },
+    {
+      path: '/bookshelves',
+      name: 'BookshelfManagement',
+      component: () => import('../views/BookshelfManagement.vue')
     }
   ]
 })

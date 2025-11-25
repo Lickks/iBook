@@ -11,10 +11,13 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AddToBookshelfDialog: typeof import('./src/components/AddToBookshelfDialog.vue')['default']
     BarChart: typeof import('./src/components/stats/BarChart.vue')['default']
     BaseChart: typeof import('./src/components/stats/BaseChart.vue')['default']
     BookCard: typeof import('./src/components/BookCard.vue')['default']
     BookForm: typeof import('./src/components/BookForm.vue')['default']
+    BookshelfDialog: typeof import('./src/components/BookshelfDialog.vue')['default']
+    BookshelfSelector: typeof import('./src/components/BookshelfSelector.vue')['default']
     DisplayModeToggle: typeof import('./src/components/DisplayModeToggle.vue')['default']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElButtonGroup: typeof import('element-plus/es')['ElButtonGroup']

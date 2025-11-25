@@ -18,6 +18,11 @@ import type {
   BookSort,
   PaginatedResult
 } from '../../renderer/src/types/book'
+import type {
+  Bookshelf,
+  BookshelfInput,
+  BookshelfStats
+} from '../../renderer/src/types/bookshelf'
 
 /**
  * 数据库服务类
@@ -88,6 +93,9 @@ class DatabaseService {
           throw error
         }
       }
+      
+      // 初始化默认书架
+      this.initializeDefaultBookshelf()
       
       console.log('数据库初始化成功:', this.getDbPath())
     } catch (error) {
@@ -172,8 +180,26 @@ class DatabaseService {
       throw new Error('创建书籍失败：无法获取插入的ID')
     }
 
+    // 自动将新创建的书籍添加到默认书架
+    try {
+      const defaultBookshelfStmt = db.prepare('SELECT id FROM bookshelves WHERE is_default = 1 LIMIT 1')
+      const defaultBookshelf = defaultBookshelfStmt.get() as { id: number } | undefined
+      
+      if (defaultBookshelf) {
+        const addToBookshelfStmt = db.prepare(`
+          INSERT OR IGNORE INTO book_bookshelves (book_id, bookshelf_id)
+          VALUES (?, ?)
+        `)
+        addToBookshelfStmt.run(insertId, defaultBookshelf.id)
+      }
+    } catch (error) {
+      // 如果添加到默认书架失败，记录错误但不影响书籍创建
+      console.warn('将新书籍添加到默认书架失败:', error)
+    }
+
     // 清除相关缓存
     cacheService.clearPattern('^books:')
+    cacheService.clearPattern('^bookshelves:')
 
     return this.getBookById(insertId)!
   }
@@ -1247,6 +1273,433 @@ class DatabaseService {
     // 确保只返回基本数据类型，避免可能的序列化问题
     const changes = result && typeof result.changes === 'number' ? result.changes : 0
     return changes > 0
+  }
+
+  // ============================================
+  // 书架 CRUD 操作
+  // ============================================
+
+  /**
+   * 初始化默认书架
+   * 如果不存在默认书架，则创建一个，并将所有现有书籍关联到默认书架
+   */
+  initializeDefaultBookshelf(): void {
+    const db = this.getDatabase()
+    
+    // 检查是否已存在默认书架
+    const checkStmt = db.prepare('SELECT id FROM bookshelves WHERE is_default = 1 LIMIT 1')
+    const existing = checkStmt.get() as any
+    
+    if (!existing) {
+      // 创建默认书架
+      const createStmt = db.prepare(`
+        INSERT INTO bookshelves (name, description, is_default, sort_order)
+        VALUES (?, ?, 1, 0)
+      `)
+      const result = createStmt.run('全局书架', '所有书籍的默认书架')
+      const defaultBookshelfId = result.lastInsertRowid as number
+      
+      // 将所有现有书籍关联到默认书架
+      const allBooksStmt = db.prepare('SELECT id FROM books')
+      const allBooks = allBooksStmt.all() as Array<{ id: number }>
+      
+      if (allBooks.length > 0) {
+        const insertStmt = db.prepare(`
+          INSERT OR IGNORE INTO book_bookshelves (book_id, bookshelf_id)
+          VALUES (?, ?)
+        `)
+        const insertMany = db.transaction((books: Array<{ id: number }>) => {
+          for (const book of books) {
+            insertStmt.run(book.id, defaultBookshelfId)
+          }
+        })
+        insertMany(allBooks)
+      }
+      
+      console.log('默认书架初始化完成，已关联', allBooks.length, '本书籍')
+    }
+  }
+
+  /**
+   * 创建书架
+   */
+  createBookshelf(name: string, description?: string): Bookshelf {
+    const db = this.getDatabase()
+    
+    // 获取当前最大排序值
+    const maxOrderStmt = db.prepare('SELECT COALESCE(MAX(sort_order), 0) as max_order FROM bookshelves')
+    const maxOrder = (maxOrderStmt.get() as any)?.max_order || 0
+    
+    const stmt = db.prepare(`
+      INSERT INTO bookshelves (name, description, is_default, sort_order)
+      VALUES (?, ?, 0, ?)
+    `)
+    
+    const result = stmt.run(name, description || null, maxOrder + 1)
+    const insertId = result.lastInsertRowid as number
+    
+    // 清除缓存
+    cacheService.clearPattern('^bookshelves:')
+    
+    return this.getBookshelfById(insertId)!
+  }
+
+  /**
+   * 获取所有书架
+   */
+  getAllBookshelves(): Bookshelf[] {
+    const cacheKey = 'bookshelves:all'
+    
+    const cached = cacheService.get<Bookshelf[]>(cacheKey)
+    if (cached) {
+      return cached
+    }
+    
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT
+        id, name, description, is_default as isDefault,
+        sort_order as sortOrder,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM bookshelves
+      ORDER BY is_default DESC, sort_order ASC, created_at ASC
+    `)
+    
+    const rows = stmt.all() as any[]
+    const bookshelves = rows.map((row) => ({
+      ...row,
+      isDefault: Boolean(row.isDefault),
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null),
+      updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
+        ? row.updatedAt.toISOString()
+        : (row.updatedAt || null)
+    }))
+    
+    cacheService.set(cacheKey, bookshelves)
+    return bookshelves
+  }
+
+  /**
+   * 根据 ID 获取书架
+   */
+  getBookshelfById(id: number): Bookshelf | null {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT
+        id, name, description, is_default as isDefault,
+        sort_order as sortOrder,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM bookshelves
+      WHERE id = ?
+    `)
+    
+    const row = stmt.get(id) as any
+    if (!row) return null
+    
+    return {
+      ...row,
+      isDefault: Boolean(row.isDefault),
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null),
+      updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
+        ? row.updatedAt.toISOString()
+        : (row.updatedAt || null)
+    }
+  }
+
+  /**
+   * 更新书架
+   */
+  updateBookshelf(id: number, input: Partial<BookshelfInput>): Bookshelf | null {
+    const db = this.getDatabase()
+    
+    // 不允许修改默认书架的 is_default 字段
+    const fields: string[] = []
+    const values: any[] = []
+    
+    if (input.name !== undefined) {
+      fields.push('name = ?')
+      values.push(input.name)
+    }
+    if (input.description !== undefined) {
+      fields.push('description = ?')
+      values.push(input.description || null)
+    }
+    if (input.sortOrder !== undefined) {
+      fields.push('sort_order = ?')
+      values.push(input.sortOrder)
+    }
+    
+    if (fields.length === 0) {
+      return this.getBookshelfById(id)
+    }
+    
+    values.push(id)
+    const stmt = db.prepare(`
+      UPDATE bookshelves
+      SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `)
+    
+    stmt.run(...values)
+    
+    // 清除缓存
+    cacheService.clearPattern('^bookshelves:')
+    
+    return this.getBookshelfById(id)
+  }
+
+  /**
+   * 删除书架
+   */
+  deleteBookshelf(id: number): boolean {
+    const db = this.getDatabase()
+    
+    // 检查是否为默认书架
+    const checkStmt = db.prepare('SELECT is_default FROM bookshelves WHERE id = ?')
+    const bookshelf = checkStmt.get(id) as any
+    
+    if (bookshelf?.is_default) {
+      throw new Error('不能删除默认书架')
+    }
+    
+    const stmt = db.prepare('DELETE FROM bookshelves WHERE id = ?')
+    const result = stmt.run(id)
+    const changes = result && typeof result.changes === 'number' ? result.changes : 0
+    
+    // 清除缓存
+    cacheService.clearPattern('^bookshelves:')
+    cacheService.clearPattern('^books:')
+    
+    return changes > 0
+  }
+
+  /**
+   * 添加书籍到书架
+   */
+  addBooksToBookshelf(bookshelfId: number, bookIds: number[]): number {
+    if (bookIds.length === 0) return 0
+    
+    // 确保 bookIds 是纯数组
+    const ids = Array.isArray(bookIds) ? [...bookIds] : []
+    if (ids.length === 0) return 0
+    
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      INSERT OR IGNORE INTO book_bookshelves (book_id, bookshelf_id)
+      VALUES (?, ?)
+    `)
+    
+    const insertMany = db.transaction((bookIdList: number[]) => {
+      let count = 0
+      for (const bookId of bookIdList) {
+        try {
+          const result = stmt.run(Number(bookId), Number(bookshelfId))
+          if (result && typeof result.changes === 'number' && result.changes > 0) {
+            count++
+          }
+        } catch (error) {
+          // 忽略重复插入错误
+        }
+      }
+      return count
+    })
+    
+    const count = insertMany(ids)
+    
+    // 清除缓存
+    cacheService.clearPattern('^books:')
+    cacheService.clearPattern('^bookshelves:')
+    
+    // 确保返回的是纯数字
+    return Number(count) || 0
+  }
+
+  /**
+   * 从书架移除书籍
+   */
+  removeBooksFromBookshelf(bookshelfId: number, bookIds: number[]): number {
+    // 确保 bookIds 是纯数组
+    const ids = Array.isArray(bookIds) ? [...bookIds] : []
+    if (ids.length === 0) return 0
+    
+    const db = this.getDatabase()
+    
+    // 检查是否为默认书架
+    const checkStmt = db.prepare('SELECT is_default FROM bookshelves WHERE id = ?')
+    const bookshelf = checkStmt.get(Number(bookshelfId)) as any
+    
+    if (bookshelf?.is_default) {
+      throw new Error('不能从默认书架移除书籍')
+    }
+    
+    const placeholders = ids.map(() => '?').join(',')
+    const stmt = db.prepare(`
+      DELETE FROM book_bookshelves
+      WHERE bookshelf_id = ? AND book_id IN (${placeholders})
+    `)
+    
+    const result = stmt.run(Number(bookshelfId), ...ids.map(id => Number(id)))
+    const changes = result && typeof result.changes === 'number' ? result.changes : 0
+    
+    // 清除缓存
+    cacheService.clearPattern('^books:')
+    cacheService.clearPattern('^bookshelves:')
+    
+    // 确保返回的是纯数字
+    return Number(changes) || 0
+  }
+
+  /**
+   * 获取书架中的书籍
+   */
+  getBooksInBookshelf(bookshelfId: number | null, filters?: BookFilters): Book[] {
+    const db = this.getDatabase()
+    
+    let query = `
+      SELECT DISTINCT
+        b.id, b.title, b.author, b.cover_url as coverUrl, b.platform, b.category, b.description,
+        b.word_count_source as wordCountSource,
+        b.word_count_search as wordCountSearch,
+        b.word_count_document as wordCountDocument,
+        b.word_count_manual as wordCountManual,
+        b.word_count_display as wordCountDisplay,
+        b.isbn, b.source_url as sourceUrl,
+        b.reading_status as readingStatus,
+        b.personal_rating as personalRating,
+        b.created_at as createdAt,
+        b.updated_at as updatedAt
+      FROM books b
+    `
+    
+    const conditions: string[] = []
+    const params: any[] = []
+    
+    if (bookshelfId !== null) {
+      query += ' INNER JOIN book_bookshelves bb ON b.id = bb.book_id'
+      conditions.push('bb.bookshelf_id = ?')
+      params.push(bookshelfId)
+    }
+    
+    if (filters) {
+      if (filters.readingStatus) {
+        conditions.push('b.reading_status = ?')
+        params.push(filters.readingStatus)
+      }
+      if (filters.category) {
+        conditions.push('b.category = ?')
+        params.push(filters.category)
+      }
+      if (filters.platform) {
+        conditions.push('b.platform = ?')
+        params.push(filters.platform)
+      }
+      if (filters.keyword) {
+        conditions.push('(b.title LIKE ? OR b.author LIKE ? OR b.description LIKE ?)')
+        const keyword = `%${filters.keyword}%`
+        params.push(keyword, keyword, keyword)
+      }
+      if (filters.tagIds && filters.tagIds.length > 0) {
+        query += ' INNER JOIN book_tags bt ON b.id = bt.book_id'
+        const tagPlaceholders = filters.tagIds.map(() => '?').join(',')
+        conditions.push(`bt.tag_id IN (${tagPlaceholders})`)
+        params.push(...filters.tagIds)
+      }
+    }
+    
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ')
+    }
+    
+    query += ' ORDER BY b.created_at DESC'
+    
+    const stmt = db.prepare(query)
+    const rows = stmt.all(...params) as any[]
+    
+    // 批量获取标签
+    const bookIds = rows.map(row => row.id)
+    const tagsMap = this.getTagsByBookIds(bookIds)
+    
+    return rows.map((row) => ({
+      ...row,
+      readingStatus: row.readingStatus || 'unread',
+      wordCountSource: row.wordCountSource || 'search',
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null),
+      updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
+        ? row.updatedAt.toISOString()
+        : (row.updatedAt || null),
+      tags: tagsMap.get(row.id) || []
+    }))
+  }
+
+  /**
+   * 获取书架统计信息
+   */
+  getBookshelfStats(bookshelfId: number): BookshelfStats {
+    const db = this.getDatabase()
+    
+    const stmt = db.prepare(`
+      SELECT
+        COUNT(DISTINCT bb.book_id) as totalBooks,
+        SUM(CASE WHEN b.reading_status = 'finished' THEN 1 ELSE 0 END) as finishedBooks,
+        SUM(CASE WHEN b.reading_status = 'reading' THEN 1 ELSE 0 END) as readingBooks,
+        SUM(CASE WHEN b.reading_status = 'to-read' THEN 1 ELSE 0 END) as toReadBooks,
+        SUM(CASE WHEN b.reading_status = 'dropped' THEN 1 ELSE 0 END) as droppedBooks,
+        COALESCE(SUM(b.word_count_display), 0) as totalWords,
+        AVG(b.personal_rating) as avgRating
+      FROM book_bookshelves bb
+      INNER JOIN books b ON bb.book_id = b.id
+      WHERE bb.bookshelf_id = ?
+    `)
+    
+    const row = stmt.get(bookshelfId) as any
+    
+    return {
+      totalBooks: row?.totalBooks || 0,
+      finishedBooks: row?.finishedBooks || 0,
+      readingBooks: row?.readingBooks || 0,
+      toReadBooks: row?.toReadBooks || 0,
+      droppedBooks: row?.droppedBooks || 0,
+      totalWords: row?.totalWords || 0,
+      avgRating: row?.avgRating || null
+    }
+  }
+
+  /**
+   * 获取书籍所属的书架列表
+   */
+  getBookshelvesByBookId(bookId: number): Bookshelf[] {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT
+        bs.id, bs.name, bs.description, bs.is_default as isDefault,
+        bs.sort_order as sortOrder,
+        bs.created_at as createdAt,
+        bs.updated_at as updatedAt
+      FROM bookshelves bs
+      INNER JOIN book_bookshelves bb ON bs.id = bb.bookshelf_id
+      WHERE bb.book_id = ?
+      ORDER BY bs.is_default DESC, bs.sort_order ASC
+    `)
+    
+    const rows = stmt.all(bookId) as any[]
+    return rows.map((row) => ({
+      ...row,
+      isDefault: Boolean(row.isDefault),
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null),
+      updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
+        ? row.updatedAt.toISOString()
+        : (row.updatedAt || null)
+    }))
   }
 }
 

@@ -94,6 +94,31 @@ CREATE TABLE IF NOT EXISTS book_tags (
 );
 
 -- ============================================
+-- 书架表
+-- ============================================
+CREATE TABLE IF NOT EXISTS bookshelves (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(100) NOT NULL COMMENT '书架名称',
+    description TEXT COMMENT '书架描述',
+    is_default BOOLEAN DEFAULT 0 COMMENT '是否为默认全局书架',
+    sort_order INTEGER DEFAULT 0 COMMENT '排序顺序',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '更新时间'
+);
+
+-- ============================================
+-- 书籍-书架关联表
+-- ============================================
+CREATE TABLE IF NOT EXISTS book_bookshelves (
+    book_id INTEGER NOT NULL COMMENT '书籍ID',
+    bookshelf_id INTEGER NOT NULL COMMENT '书架ID',
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '添加时间',
+    PRIMARY KEY (book_id, bookshelf_id),
+    FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+    FOREIGN KEY (bookshelf_id) REFERENCES bookshelves(id) ON DELETE CASCADE
+);
+
+-- ============================================
 -- 创建索引
 -- ============================================
 
@@ -130,6 +155,16 @@ CREATE INDEX IF NOT EXISTS idx_book_tags_book_id ON book_tags(book_id);
 CREATE INDEX IF NOT EXISTS idx_book_tags_tag_id ON book_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_book_tags_composite ON book_tags(book_id, tag_id);
 
+-- 书架表索引
+CREATE INDEX IF NOT EXISTS idx_bookshelves_name ON bookshelves(name);
+CREATE INDEX IF NOT EXISTS idx_bookshelves_is_default ON bookshelves(is_default);
+CREATE INDEX IF NOT EXISTS idx_bookshelves_sort_order ON bookshelves(sort_order);
+
+-- 书籍-书架关联表索引
+CREATE INDEX IF NOT EXISTS idx_book_bookshelves_book_id ON book_bookshelves(book_id);
+CREATE INDEX IF NOT EXISTS idx_book_bookshelves_bookshelf_id ON book_bookshelves(bookshelf_id);
+CREATE INDEX IF NOT EXISTS idx_book_bookshelves_composite ON book_bookshelves(book_id, bookshelf_id);
+
 -- ============================================
 -- 触发器：自动更新 updated_at
 -- ============================================
@@ -137,6 +172,12 @@ CREATE TRIGGER IF NOT EXISTS update_books_timestamp
 AFTER UPDATE ON books
 BEGIN
     UPDATE books SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS update_bookshelves_timestamp 
+AFTER UPDATE ON bookshelves
+BEGIN
+    UPDATE bookshelves SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
 
 -- ============================================

@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useUIStore } from './stores/ui'
 import { useBookStore } from './stores/book'
+import { useBookshelfStore } from './stores/bookshelf'
+import BookshelfDialog from './components/BookshelfDialog.vue'
 
 const uiStore = useUIStore()
 const bookStore = useBookStore()
+const bookshelfStore = useBookshelfStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -23,14 +27,84 @@ const themeLabel = computed(() => {
   return theme === 'dark' ? '切换为亮色' : '切换为暗色'
 })
 
+// 书架相关状态
+const bookshelfExpanded = ref(true)
+const showBookshelfDialog = ref(false)
+const editingBookshelf = ref(null)
+
+const customBookshelves = computed(() => bookshelfStore.customBookshelves)
+const currentBookshelfId = computed(() => bookshelfStore.currentBookshelfId)
+
+// 监听路由变化，更新当前书架
+watch(() => route.params.bookshelfId, (bookshelfId) => {
+  if (bookshelfId) {
+    const id = Number(bookshelfId)
+    if (!isNaN(id)) {
+      bookshelfStore.setCurrentBookshelf(id)
+      bookStore.setCurrentBookshelf(id)
+    }
+  }
+}, { immediate: true })
+
+// 监听路由名称变化，当进入首页时切换到默认书架
+watch(() => route.name, (routeName) => {
+  if (routeName === 'Home') {
+    // 切换到默认书架（全部书籍）
+    const defaultBookshelfId = bookshelfStore.defaultBookshelf?.id || null
+    if (bookshelfStore.currentBookshelfId !== defaultBookshelfId) {
+      bookshelfStore.setCurrentBookshelf(defaultBookshelfId)
+      bookStore.setCurrentBookshelf(defaultBookshelfId)
+      bookStore.fetchBooks()
+    }
+  }
+}, { immediate: true })
+
 async function ensureBooksLoaded(): Promise<void> {
   if (!bookStore.books.length) {
     await bookStore.fetchBooks()
   }
 }
 
+async function ensureBookshelvesLoaded(): Promise<void> {
+  if (bookshelfStore.bookshelves.length === 0) {
+    try {
+      await bookshelfStore.fetchBookshelves()
+      // 如果没有当前书架，设置为默认书架
+      if (!bookshelfStore.currentBookshelfId && bookshelfStore.defaultBookshelf) {
+        bookshelfStore.setCurrentBookshelf(bookshelfStore.defaultBookshelf.id)
+        bookStore.setCurrentBookshelf(bookshelfStore.defaultBookshelf.id)
+      }
+    } catch (error: any) {
+      console.error('加载书架列表失败:', error)
+    }
+  }
+}
+
+function handleBookshelfClick(bookshelfId: number): void {
+  bookshelfStore.setCurrentBookshelf(bookshelfId)
+  bookStore.setCurrentBookshelf(bookshelfId)
+  bookStore.fetchBooks()
+  // 如果当前不在首页，跳转到首页
+  if (route.name !== 'Home') {
+    router.push('/')
+  }
+}
+
+function openBookshelfDialog(bookshelf = null): void {
+  editingBookshelf.value = bookshelf
+  showBookshelfDialog.value = true
+}
+
+function handleBookshelfSuccess(): void {
+  // 刷新书架列表
+  bookshelfStore.fetchBookshelves()
+  // 刷新书籍列表
+  bookStore.fetchBooks()
+}
+
 onMounted(() => {
   ensureBooksLoaded()
+  ensureBookshelvesLoaded()
 })
 </script>
 
@@ -53,6 +127,40 @@ onMounted(() => {
           <span class="icon">{{ item.icon }}</span>
           <span class="label">{{ item.label }}</span>
         </RouterLink>
+
+        <!-- 自定义书架 -->
+        <div class="bookshelf-section">
+          <button
+            class="nav-link bookshelf-header"
+            :class="{ active: bookshelfExpanded }"
+            @click="bookshelfExpanded = !bookshelfExpanded"
+          >
+            <span class="icon">📖</span>
+            <span class="label">自定义书架</span>
+            <span class="expand-icon" :class="{ expanded: bookshelfExpanded }">▼</span>
+          </button>
+          <Transition name="bookshelf-list">
+            <div v-if="bookshelfExpanded" class="bookshelf-list">
+              <button
+                v-for="bookshelf in customBookshelves"
+                :key="bookshelf.id"
+                class="bookshelf-item"
+                :class="{ active: currentBookshelfId === bookshelf.id }"
+                @click="handleBookshelfClick(bookshelf.id)"
+              >
+                <span class="bookshelf-icon">📚</span>
+                <span class="bookshelf-name">{{ bookshelf.name }}</span>
+              </button>
+              <button
+                class="bookshelf-item create-bookshelf"
+                @click="openBookshelfDialog(null)"
+              >
+                <span class="bookshelf-icon">➕</span>
+                <span class="bookshelf-name">创建书架</span>
+              </button>
+            </div>
+          </Transition>
+        </div>
       </nav>
 
       <div class="sidebar-footer">
@@ -94,6 +202,13 @@ onMounted(() => {
         </RouterView>
       </main>
     </div>
+
+    <!-- 书架对话框 -->
+    <BookshelfDialog
+      v-model="showBookshelfDialog"
+      :bookshelf="editingBookshelf"
+      @success="handleBookshelfSuccess"
+    />
   </div>
 </template>
 
@@ -159,6 +274,100 @@ onMounted(() => {
   background: var(--color-accent-soft);
   color: var(--color-accent);
   font-weight: 600;
+}
+
+/* 书架部分样式 */
+.bookshelf-section {
+  margin-top: 8px;
+}
+
+.bookshelf-header {
+  width: 100%;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.expand-icon {
+  font-size: 10px;
+  transition: transform 0.2s ease;
+  color: var(--color-text-tertiary);
+}
+
+.expand-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.bookshelf-list {
+  margin-top: 4px;
+  margin-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bookshelf-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.bookshelf-item:hover {
+  background: var(--color-bg-muted);
+  color: var(--color-text-primary);
+}
+
+.bookshelf-item.active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.bookshelf-item.create-bookshelf {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.bookshelf-item.create-bookshelf:hover {
+  background: var(--color-accent-soft);
+}
+
+.bookshelf-icon {
+  margin-right: 8px;
+  font-size: 14px;
+}
+
+.bookshelf-name {
+  flex: 1;
+}
+
+/* 书架列表展开/收起动画 */
+.bookshelf-list-enter-active,
+.bookshelf-list-leave-active {
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.bookshelf-list-enter-from,
+.bookshelf-list-leave-to {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+}
+
+.bookshelf-list-enter-to,
+.bookshelf-list-leave-from {
+  max-height: 500px;
+  opacity: 1;
 }
 
 .primary-btn {

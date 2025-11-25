@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { BookInput, DocumentInput, SearchDetail, SearchResult, TagInput } from '../renderer/src/types/book'
+import type { BookshelfInput } from '../renderer/src/types/bookshelf'
 import type { ApiResponse } from '../renderer/src/types/api'
 
 // Custom APIs for renderer
@@ -97,6 +98,27 @@ const api = {
       ipcRenderer.invoke('tag:batchAddToBooks', bookIds, tagId),
     getUsageCount: (tagId: number): Promise<ApiResponse<number>> =>
       ipcRenderer.invoke('tag:getUsageCount', tagId)
+  },
+
+  // 书架操作
+  bookshelf: {
+    create: (name: string, description?: string): Promise<ApiResponse> =>
+      ipcRenderer.invoke('bookshelf:create', name, description),
+    update: (id: number, input: Partial<BookshelfInput>): Promise<ApiResponse> =>
+      ipcRenderer.invoke('bookshelf:update', id, input),
+    delete: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('bookshelf:delete', id),
+    getAll: (): Promise<ApiResponse> => ipcRenderer.invoke('bookshelf:getAll'),
+    getById: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('bookshelf:getById', id),
+    addBooks: (bookshelfId: number, bookIds: number[]): Promise<ApiResponse> =>
+      ipcRenderer.invoke('bookshelf:addBooks', bookshelfId, bookIds),
+    removeBooks: (bookshelfId: number, bookIds: number[]): Promise<ApiResponse> =>
+      ipcRenderer.invoke('bookshelf:removeBooks', bookshelfId, bookIds),
+    getBooks: (bookshelfId: number | null, filters?: any): Promise<ApiResponse> =>
+      ipcRenderer.invoke('bookshelf:getBooks', bookshelfId, filters),
+    getStats: (bookshelfId: number): Promise<ApiResponse> =>
+      ipcRenderer.invoke('bookshelf:getStats', bookshelfId),
+    getByBookId: (bookId: number): Promise<ApiResponse> =>
+      ipcRenderer.invoke('bookshelf:getByBookId', bookId)
   }
 }
 

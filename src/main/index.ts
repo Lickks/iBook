@@ -21,6 +21,7 @@ import { setupDocumentHandlers } from './ipc/documentHandler'
 import { setupSearchHandlers } from './ipc/searchHandler'
 import { registerStatsHandlers } from './ipc/statsHandler'
 import { setupTagHandlers } from './ipc/tagHandler'
+import { setupBookshelfHandlers } from './ipc/bookshelfHandler'
 import { createWindowWithState } from './services/windowState'
 
 function createWindow(): void {
@@ -67,6 +68,7 @@ app.whenReady().then(() => {
   setupSearchHandlers()
   registerStatsHandlers()
   setupTagHandlers()
+  setupBookshelfHandlers()
 
   createWindow()
 

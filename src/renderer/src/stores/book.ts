@@ -4,6 +4,7 @@ import { READING_STATUS } from '../constants'
 import type { Book, BookInput } from '../types'
 import * as bookAPI from '../api/book'
 import * as tagAPI from '../api/tag'
+import * as bookshelfAPI from '../api/bookshelf'
 
 /**
  * 书籍状态管理 Store
@@ -20,6 +21,7 @@ export const useBookStore = defineStore('book', () => {
   const selectedTags = ref<number[]>([])
   const sortBy = ref<'wordCount' | 'createdAt' | 'rating' | 'title' | 'author' | null>(null)
   const sortOrder = ref<'asc' | 'desc'>('desc')
+  const currentBookshelfId = ref<number | null>(null)
 
   // 缓存 filteredBooks 的计算结果
   let filteredBooksCache: Book[] | null = null
@@ -220,12 +222,26 @@ export const useBookStore = defineStore('book', () => {
 
   // Actions
   /**
-   * 获取所有书籍
+   * 获取所有书籍（支持按书架筛选）
    */
   async function fetchBooks(): Promise<void> {
     loading.value = true
     try {
-      const fetchedBooks = await bookAPI.getAllBooks()
+      let fetchedBooks: Book[]
+      if (currentBookshelfId.value !== null) {
+        // 按书架获取书籍
+        const filters = {
+          readingStatus: selectedStatus.value || undefined,
+          category: selectedCategory.value || undefined,
+          platform: selectedPlatform.value || undefined,
+          tagIds: selectedTags.value.length > 0 ? selectedTags.value : undefined,
+          keyword: searchKeyword.value.trim() || undefined
+        }
+        fetchedBooks = await bookshelfAPI.getBooksInBookshelf(currentBookshelfId.value, filters)
+      } else {
+        // 获取所有书籍
+        fetchedBooks = await bookAPI.getAllBooks()
+      }
       // 使用 shallowRef 时，需要替换整个数组引用
       books.value = fetchedBooks
       // 清除缓存
@@ -532,6 +548,15 @@ export const useBookStore = defineStore('book', () => {
     }
   }
 
+  /**
+   * 设置当前书架
+   */
+  function setCurrentBookshelf(bookshelfId: number | null): void {
+    currentBookshelfId.value = bookshelfId
+    // 切换书架时重新获取书籍
+    fetchBooks()
+  }
+
   return {
     // State
     books,
@@ -544,6 +569,7 @@ export const useBookStore = defineStore('book', () => {
     selectedTags,
     sortBy,
     sortOrder,
+    currentBookshelfId,
     // Getters
     filteredBooks,
     totalWordCount,
@@ -571,6 +597,7 @@ export const useBookStore = defineStore('book', () => {
     toggleTagFilter,
     setSort,
     batchDeleteBooks,
-    batchAddTags
+    batchAddTags,
+    setCurrentBookshelf
   }
 })

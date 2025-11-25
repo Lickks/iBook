@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type { BookInput, DocumentInput, SearchDetail, SearchResult, TagInput } from '../renderer/src/types/book'
+import type { BookshelfInput } from '../renderer/src/types/bookshelf'
 import type { ApiResponse } from '../renderer/src/types/api'
 
 declare global {
@@ -55,6 +56,18 @@ declare global {
         getByBookId: (bookId: number) => Promise<ApiResponse>
         batchAddToBooks: (bookIds: number[], tagId: number) => Promise<ApiResponse>
         getUsageCount: (tagId: number) => Promise<ApiResponse<number>>
+      }
+      bookshelf: {
+        create: (name: string, description?: string) => Promise<ApiResponse>
+        update: (id: number, input: Partial<BookshelfInput>) => Promise<ApiResponse>
+        delete: (id: number) => Promise<ApiResponse>
+        getAll: () => Promise<ApiResponse>
+        getById: (id: number) => Promise<ApiResponse>
+        addBooks: (bookshelfId: number, bookIds: number[]) => Promise<ApiResponse>
+        removeBooks: (bookshelfId: number, bookIds: number[]) => Promise<ApiResponse>
+        getBooks: (bookshelfId: number | null, filters?: any) => Promise<ApiResponse>
+        getStats: (bookshelfId: number) => Promise<ApiResponse>
+        getByBookId: (bookId: number) => Promise<ApiResponse>
       }
     }
   }

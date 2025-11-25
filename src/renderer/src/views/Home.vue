@@ -12,11 +12,15 @@ import FilterBar from '../components/FilterBar.vue'
 import SkeletonLoader from '../components/SkeletonLoader.vue'
 import VirtualList from '../components/VirtualList.vue'
 import { useTagStore } from '../stores/tag'
+import { useBookshelfStore } from '../stores/bookshelf'
 import TagSelector from '../components/TagSelector.vue'
+import BookshelfDialog from '../components/BookshelfDialog.vue'
+import AddToBookshelfDialog from '../components/AddToBookshelfDialog.vue'
 
 const bookStore = useBookStore()
 const uiStore = useUIStore()
 const tagStore = useTagStore()
+const bookshelfStore = useBookshelfStore()
 const router = useRouter()
 
 const viewMode = computed(() => uiStore.viewMode)
@@ -169,6 +173,80 @@ function openBatchTagDialog(): void {
   showBatchTagDialog.value = true
 }
 
+// 书架相关
+const showBookshelfDialog = ref(false)
+const editingBookshelf = ref(null)
+const showAddToBookshelfDialog = ref(false)
+
+const isCustomBookshelf = computed(() => {
+  const current = bookshelfStore.currentBookshelf
+  return current && !current.isDefault
+})
+
+function openBookshelfDialog(bookshelf = null): void {
+  editingBookshelf.value = bookshelf
+  showBookshelfDialog.value = true
+}
+
+function handleBookshelfSuccess(): void {
+  // 刷新书籍列表
+  bookStore.fetchBooks()
+}
+
+function openAddToBookshelfDialog(): void {
+  if (selectedBooks.value.length === 0) return
+  showAddToBookshelfDialog.value = true
+}
+
+function handleAddToBookshelfSuccess(): void {
+  selectedBooks.value = []
+  selectionMode.value = false
+  // 刷新书籍列表
+  bookStore.fetchBooks()
+}
+
+// 从书架移除书籍（仅从当前自定义书架移除，不删除书籍）
+async function handleRemoveFromBookshelf(): Promise<void> {
+  if (selectedBooks.value.length === 0) return
+  
+  const currentBookshelf = bookshelfStore.currentBookshelf
+  if (!currentBookshelf || currentBookshelf.isDefault) {
+    ElMessage.warning('不能从全局书架移除书籍')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要从书架「${currentBookshelf.name}」中移除选中的 ${selectedBooks.value.length} 本书籍吗？书籍不会被删除，只是从当前书架中移除。`,
+      '确认移除',
+      {
+        confirmButtonText: '确定移除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    const bookIds = [...selectedBooks.value]
+    const count = await bookshelfStore.removeBooksFromBookshelf(currentBookshelf.id, bookIds)
+    
+    selectedBooks.value = []
+    selectionMode.value = false
+    
+    if (count > 0) {
+      ElMessage.success(`已从书架移除 ${count} 本书籍`)
+      // 刷新书籍列表
+      await bookStore.fetchBooks()
+    } else {
+      ElMessage.warning('没有书籍被移除')
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '从书架移除书籍失败')
+      console.error('从书架移除书籍失败:', error)
+    }
+  }
+}
+
 
 </script>
 
@@ -205,6 +283,13 @@ function openBatchTagDialog(): void {
             :class="{ active: selectionMode }"
           >
             {{ selectionMode ? '取消选择' : '批量管理' }}
+          </button>
+          <button
+            type="button"
+            class="secondary-btn"
+            @click="openBookshelfDialog(null)"
+          >
+            + 创建书架
           </button>
         </div>
         <button class="primary-btn" type="button" @click="goToAdd">
@@ -254,6 +339,19 @@ function openBatchTagDialog(): void {
         <button class="batch-action-btn batch-tag-btn" type="button" @click="openBatchTagDialog">
           <span class="icon">🏷️</span>
           <span>批量添加标签</span>
+        </button>
+        <button class="batch-action-btn batch-bookshelf-btn" type="button" @click="openAddToBookshelfDialog">
+          <span class="icon">📚</span>
+          <span>添加到书架</span>
+        </button>
+        <button
+          v-if="isCustomBookshelf"
+          class="batch-action-btn batch-remove-btn"
+          type="button"
+          @click="handleRemoveFromBookshelf"
+        >
+          <span class="icon">➖</span>
+          <span>从书架移除</span>
         </button>
         <button class="batch-action-btn batch-delete-btn" type="button" @click="handleBatchDelete">
           <span class="icon">🗑️</span>
@@ -365,6 +463,20 @@ function openBatchTagDialog(): void {
         </div>
       </div>
     </div>
+
+    <!-- 书架管理对话框 -->
+    <BookshelfDialog
+      v-model="showBookshelfDialog"
+      :bookshelf="editingBookshelf"
+      @success="handleBookshelfSuccess"
+    />
+
+    <!-- 添加到书架对话框 -->
+    <AddToBookshelfDialog
+      v-model="showAddToBookshelfDialog"
+      :book-ids="selectedBooks"
+      @success="handleAddToBookshelfSuccess"
+    />
   </section>
 </template>
 
@@ -633,6 +745,18 @@ h2 {
   border-color: var(--color-accent);
   color: var(--color-accent);
   background: var(--color-accent-soft);
+}
+
+.batch-bookshelf-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.batch-remove-btn:hover {
+  border-color: #f56c6c;
+  color: #f56c6c;
+  background: #fee;
 }
 
 .batch-delete-btn:hover {

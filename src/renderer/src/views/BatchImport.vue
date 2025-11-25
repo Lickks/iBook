@@ -5,7 +5,7 @@ import { useBookStore } from '../stores/book'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { SearchResult, BookInput } from '../types'
 import { batchSearchYoushu, downloadCover, fetchYoushuDetail, searchYoushu } from '../api/search'
-import { filterTitleForSearch, pLimit } from '../utils'
+import { filterTitleForSearch } from '../utils'
 import * as tagAPI from '../api/tag'
 
 // 工具函数：从文件路径提取文件名
@@ -246,39 +246,35 @@ async function performBatchSearch(): Promise<void> {
       item.searchError = undefined
     })
     
-    // 创建搜索任务数组
-    const searchTasks = previewItems.value.map((item, index) => {
-      return async () => {
-        try {
-          const results = await batchSearchYoushu([item.searchKeyword])
-          const result = results[0]
-          
-          if (result && result.success && result.data) {
-            item.searchResult = result.data
-            item.searchError = undefined
-          } else {
-            item.searchResult = undefined
-            item.searchError = result?.error || '搜索失败'
-          }
-        } catch (error: any) {
-          console.error(`搜索 "${item.searchKeyword}" 失败:`, error)
+    // 真正使用批量搜索：一次性搜索所有关键词
+    // 批量搜索API内部已经有并发控制（15个并发），这里不需要再控制
+    try {
+      const results = await batchSearchYoushu(keywords)
+      
+      // 根据结果更新对应的预览项
+      results.forEach((result, index) => {
+        const item = previewItems.value[index]
+        if (!item) return
+        
+        if (result.success && result.data) {
+          item.searchResult = result.data
+          item.searchError = undefined
+        } else {
           item.searchResult = undefined
-          item.searchError = error?.message || '搜索失败'
-        } finally {
-          item.loading = false
+          item.searchError = result.error || '搜索失败'
         }
-      }
-    })
-    
-    // 使用并发控制，同时最多5个请求
-    await pLimit(
-      searchTasks,
-      5, // 并发数：5
-      (completed, total) => {
-        // 可以在这里更新进度，如果需要的话
-        console.log(`搜索进度: ${completed}/${total}`)
-      }
-    )
+        item.loading = false
+      })
+    } catch (error: any) {
+      console.error('批量搜索错误:', error)
+      // 如果批量搜索失败，标记所有项为失败
+      previewItems.value.forEach(item => {
+        item.loading = false
+        if (!item.searchResult) {
+          item.searchError = error?.message || '搜索失败'
+        }
+      })
+    }
   } catch (error: any) {
     console.error('批量搜索错误:', error)
     ElMessage.error(error?.message || '批量搜索失败')
@@ -404,6 +400,49 @@ async function handleBatchImport(): Promise<void> {
   let failCount = 0
 
   try {
+    // 并行获取所有书籍的详情页信息（提高速度）
+    const detailPromises = selectedItems
+      .filter(item => item.searchResult?.sourceUrl)
+      .map(async (item) => {
+        try {
+          const detail = await fetchYoushuDetail(item.searchResult!.sourceUrl!)
+          return { item, detail }
+        } catch (error) {
+          console.warn(`获取作品详情信息失败: ${item.originalTitle}`, error)
+          return { item, detail: null }
+        }
+      })
+    
+    // 等待所有详情页获取完成
+    const detailResults = await Promise.all(detailPromises)
+    const detailMap = new Map<PreviewItem, any>()
+    detailResults.forEach(({ item, detail }) => {
+      if (detail) {
+        detailMap.set(item, detail)
+      }
+    })
+
+    // 并行下载所有封面（提高速度）
+    const coverPromises = selectedItems
+      .filter(item => item.searchResult && !item.ebookCover && item.searchResult.cover)
+      .map(async (item) => {
+        try {
+          const coverUrl = await downloadCover(item.searchResult!.cover!, item.searchResult!.title)
+          return { item, coverUrl }
+        } catch (error) {
+          console.warn('封面下载失败，使用原始链接', error)
+          return { item, coverUrl: item.searchResult!.cover }
+        }
+      })
+    
+    // 等待所有封面下载完成
+    const coverResults = await Promise.all(coverPromises)
+    const coverMap = new Map<PreviewItem, string>()
+    coverResults.forEach(({ item, coverUrl }) => {
+      coverMap.set(item, coverUrl)
+    })
+
+    // 创建书籍（串行，因为需要确保数据库操作的顺序）
     for (const item of selectedItems) {
       try {
         // 准备书籍数据
@@ -413,15 +452,10 @@ async function handleBatchImport(): Promise<void> {
           continue
         }
 
-        // 下载封面
-        let coverUrl = item.ebookCover || undefined
+        // 使用已下载的封面或电子书封面
+        let coverUrl = item.ebookCover || coverMap.get(item) || undefined
         if (!coverUrl && searchResult.cover) {
-          try {
-            coverUrl = await downloadCover(searchResult.cover, searchResult.title)
-          } catch (error) {
-            console.warn('封面下载失败，使用原始链接', error)
-            coverUrl = searchResult.cover
-          }
+          coverUrl = searchResult.cover
         }
 
         // 获取详细信息（包括完整的简介）
@@ -429,22 +463,18 @@ async function handleBatchImport(): Promise<void> {
         let category = searchResult.category
         let description = searchResult.description // 默认使用列表页的简介
         
-        // 获取详情页信息（包括完整的简介）
-        if (searchResult.sourceUrl) {
-          try {
-            const detail = await fetchYoushuDetail(searchResult.sourceUrl)
-            platform = detail.platform || platform
-            category = category || detail.category
-            // 优先使用详情页的完整简介（从"内容介绍"标签页提取）
-            // 只要详情页有简介，就使用详情页的简介（即使列表页也有简介）
-            if (detail.description && detail.description.trim().length > 10) {
-              description = detail.description
-              console.log(`书籍 "${item.originalTitle}" 使用详情页简介，长度: ${description.length}`)
-            } else {
-              console.warn(`书籍 "${item.originalTitle}" 详情页没有提取到简介，使用列表页简介`)
-            }
-          } catch (error) {
-            console.warn(`获取作品详情信息失败: ${item.originalTitle}`, error)
+        // 使用已获取的详情页信息
+        const detail = detailMap.get(item)
+        if (detail) {
+          platform = detail.platform || platform
+          category = category || detail.category
+          // 优先使用详情页的完整简介（从"内容介绍"标签页提取）
+          // 只要详情页有简介，就使用详情页的简介（即使列表页也有简介）
+          if (detail.description && detail.description.trim().length > 10) {
+            description = detail.description
+            console.log(`书籍 "${item.originalTitle}" 使用详情页简介，长度: ${description.length}`)
+          } else {
+            console.warn(`书籍 "${item.originalTitle}" 详情页没有提取到简介，使用列表页简介`)
           }
         }
 
