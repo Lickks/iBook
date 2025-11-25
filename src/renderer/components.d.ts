@@ -27,6 +27,7 @@ declare module 'vue' {
     ElRadio: typeof import('element-plus/es')['ElRadio']
     ElRadioGroup: typeof import('element-plus/es')['ElRadioGroup']
     ElSkeleton: typeof import('element-plus/es')['ElSkeleton']
+    FilterBar: typeof import('./src/components/FilterBar.vue')['default']
     NetworkSearch: typeof import('./src/components/NetworkSearch.vue')['default']
     PieChart: typeof import('./src/components/stats/PieChart.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
@@ -34,6 +35,8 @@ declare module 'vue' {
     SearchBar: typeof import('./src/components/SearchBar.vue')['default']
     StatusFilter: typeof import('./src/components/StatusFilter.vue')['default']
     StatusStats: typeof import('./src/components/StatusStats.vue')['default']
+    TagList: typeof import('./src/components/TagList.vue')['default']
+    TagSelector: typeof import('./src/components/TagSelector.vue')['default']
     Versions: typeof import('./src/components/Versions.vue')['default']
   }
 }

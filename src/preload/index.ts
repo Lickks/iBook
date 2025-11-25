@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { BookInput, DocumentInput, SearchDetail, SearchResult } from '../renderer/src/types/book'
+import type { BookInput, DocumentInput, SearchDetail, SearchResult, TagInput } from '../renderer/src/types/book'
 import type { ApiResponse } from '../renderer/src/types/api'
 
 // Custom APIs for renderer
@@ -62,6 +62,26 @@ const api = {
     // 重新计算统计数据
     recalculateStats: (): Promise<ApiResponse> =>
       ipcRenderer.invoke('stats:recalculateStats')
+  },
+
+  // 标签操作
+  tag: {
+    create: (input: TagInput): Promise<ApiResponse> => ipcRenderer.invoke('tag:create', input),
+    update: (id: number, input: Partial<TagInput>): Promise<ApiResponse> =>
+      ipcRenderer.invoke('tag:update', id, input),
+    delete: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('tag:delete', id),
+    getAll: (): Promise<ApiResponse> => ipcRenderer.invoke('tag:getAll'),
+    getById: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('tag:getById', id),
+    addToBook: (bookId: number, tagId: number): Promise<ApiResponse> =>
+      ipcRenderer.invoke('tag:addToBook', bookId, tagId),
+    removeFromBook: (bookId: number, tagId: number): Promise<ApiResponse> =>
+      ipcRenderer.invoke('tag:removeFromBook', bookId, tagId),
+    getByBookId: (bookId: number): Promise<ApiResponse> =>
+      ipcRenderer.invoke('tag:getByBookId', bookId),
+    batchAddToBooks: (bookIds: number[], tagId: number): Promise<ApiResponse> =>
+      ipcRenderer.invoke('tag:batchAddToBooks', bookIds, tagId),
+    getUsageCount: (tagId: number): Promise<ApiResponse<number>> =>
+      ipcRenderer.invoke('tag:getUsageCount', tagId)
   }
 }
 

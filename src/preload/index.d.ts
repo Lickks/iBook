@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { BookInput, DocumentInput, SearchDetail, SearchResult } from '../renderer/src/types/book'
+import type { BookInput, DocumentInput, SearchDetail, SearchResult, TagInput } from '../renderer/src/types/book'
 import type { ApiResponse } from '../renderer/src/types/api'
 
 declare global {
@@ -28,6 +28,27 @@ declare global {
         youshu: (keyword: string) => Promise<ApiResponse<SearchResult[]>>
         detail: (sourceUrl: string) => Promise<ApiResponse<SearchDetail>>
         downloadCover: (url: string, title?: string) => Promise<ApiResponse<string>>
+      }
+      stats: {
+        getOverview: () => Promise<ApiResponse>
+        getCategoryStats: () => Promise<ApiResponse>
+        getPlatformStats: () => Promise<ApiResponse>
+        getStatusStats: () => Promise<ApiResponse>
+        getMonthlyStats: (months?: number) => Promise<ApiResponse>
+        getYearlyStats: (year: number) => Promise<ApiResponse>
+        recalculateStats: () => Promise<ApiResponse>
+      }
+      tag: {
+        create: (input: TagInput) => Promise<ApiResponse>
+        update: (id: number, input: Partial<TagInput>) => Promise<ApiResponse>
+        delete: (id: number) => Promise<ApiResponse>
+        getAll: () => Promise<ApiResponse>
+        getById: (id: number) => Promise<ApiResponse>
+        addToBook: (bookId: number, tagId: number) => Promise<ApiResponse>
+        removeFromBook: (bookId: number, tagId: number) => Promise<ApiResponse>
+        getByBookId: (bookId: number) => Promise<ApiResponse>
+        batchAddToBooks: (bookIds: number[], tagId: number) => Promise<ApiResponse>
+        getUsageCount: (tagId: number) => Promise<ApiResponse<number>>
       }
     }
   }

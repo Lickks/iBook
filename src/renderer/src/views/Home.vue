@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useBookStore } from '../stores/book'
 import { useUIStore } from '../stores/ui'
 import { READING_STATUS_LABEL } from '../constants'
@@ -9,9 +9,13 @@ import SearchBar from '../components/SearchBar.vue'
 import StatusStats from '../components/StatusStats.vue'
 import BookCard from '../components/BookCard.vue'
 import DisplayModeToggle from '../components/DisplayModeToggle.vue'
+import FilterBar from '../components/FilterBar.vue'
+import { useTagStore } from '../stores/tag'
+import TagSelector from '../components/TagSelector.vue'
 
 const bookStore = useBookStore()
 const uiStore = useUIStore()
+const tagStore = useTagStore()
 const router = useRouter()
 
 const viewMode = computed(() => uiStore.viewMode)
@@ -98,6 +102,62 @@ async function handleBatchStatusUpdate(status: string): Promise<void> {
   }
 }
 
+// 批量删除
+const showDeleteConfirm = ref(false)
+async function handleBatchDelete(): Promise<void> {
+  if (selectedBooks.value.length === 0) return
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedBooks.value.length} 本书籍吗？此操作不可恢复。`,
+      '确认删除',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    const count = await bookStore.batchDeleteBooks(selectedBooks.value)
+    selectedBooks.value = []
+    selectionMode.value = false
+    ElMessage.success(`已成功删除 ${count} 本书籍`)
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error('批量删除失败')
+      console.error('批量删除失败:', error)
+    }
+  }
+}
+
+// 批量添加标签
+const showBatchTagDialog = ref(false)
+const batchSelectedTagIds = ref<number[]>([])
+async function handleBatchAddTags(): Promise<void> {
+  if (selectedBooks.value.length === 0 || batchSelectedTagIds.value.length === 0) return
+
+  const selectedCount = selectedBooks.value.length
+  const selectedIds = [...selectedBooks.value]
+
+  try {
+    await bookStore.batchAddTags(selectedIds, batchSelectedTagIds.value)
+    selectedBooks.value = []
+    batchSelectedTagIds.value = []
+    showBatchTagDialog.value = false
+    selectionMode.value = false
+    ElMessage.success(`已为 ${selectedCount} 本书籍添加标签`)
+  } catch (error: any) {
+    ElMessage.error('批量添加标签失败')
+    console.error('批量添加标签失败:', error)
+  }
+}
+
+function openBatchTagDialog(): void {
+  if (selectedBooks.value.length === 0) return
+  batchSelectedTagIds.value = []
+  showBatchTagDialog.value = true
+}
+
 
 </script>
 
@@ -181,10 +241,21 @@ async function handleBatchStatusUpdate(status: string): Promise<void> {
             </option>
           </select>
         </div>
+        <button class="batch-action-btn batch-tag-btn" type="button" @click="openBatchTagDialog">
+          <span class="icon">🏷️</span>
+          <span>批量添加标签</span>
+        </button>
+        <button class="batch-action-btn batch-delete-btn" type="button" @click="handleBatchDelete">
+          <span class="icon">🗑️</span>
+          <span>批量删除</span>
+        </button>
       </div>
     </div>
 
-    <!-- 搜索栏和清空筛选按钮 -->
+    <!-- 筛选工具栏 -->
+    <FilterBar />
+
+    <!-- 搜索栏 -->
     <div class="search-filter-section">
       <SearchBar />
       <!-- <button
@@ -229,6 +300,32 @@ async function handleBatchStatusUpdate(status: string): Promise<void> {
         />
       </div>
     </template>
+
+    <!-- 批量添加标签对话框 -->
+    <div v-if="showBatchTagDialog" class="dialog-overlay" @click="showBatchTagDialog = false">
+      <div class="dialog" @click.stop>
+        <h3 class="dialog-title">批量添加标签</h3>
+        <div class="dialog-content">
+          <p class="dialog-hint">已选择 {{ selectedBooks.length }} 本书籍</p>
+          <div class="tag-selector-wrapper">
+            <TagSelector v-model="batchSelectedTagIds" />
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn btn-cancel" type="button" @click="showBatchTagDialog = false">
+            取消
+          </button>
+          <button
+            class="btn btn-confirm"
+            type="button"
+            :disabled="batchSelectedTagIds.length === 0"
+            @click="handleBatchAddTags"
+          >
+            确定
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -434,7 +531,8 @@ h2 {
 .batch-status-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .batch-info {
@@ -445,6 +543,124 @@ h2 {
   background: var(--color-bg-mute);
   border-radius: 6px;
   border: 1px solid var(--color-border);
+}
+
+.batch-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.batch-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.batch-tag-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.batch-delete-btn:hover {
+  border-color: #f56c6c;
+  color: #f56c6c;
+  background: #fee;
+}
+
+.batch-action-btn .icon {
+  font-size: 16px;
+}
+
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.dialog {
+  background: var(--color-surface);
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.dialog-title {
+  margin: 0 0 20px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.dialog-content {
+  margin-bottom: 20px;
+}
+
+.dialog-hint {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.tag-selector-wrapper {
+  min-height: 100px;
+}
+
+.dialog-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.btn-cancel {
+  background: var(--color-bg-muted);
+  color: var(--color-text-primary);
+}
+
+.btn-cancel:hover {
+  background: var(--color-bg-soft);
+}
+
+.btn-confirm {
+  background: var(--color-accent);
+  color: white;
+}
+
+.btn-confirm:hover:not(:disabled) {
+  background: var(--color-accent-dark);
+}
+
+.btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .batch-select-btn {

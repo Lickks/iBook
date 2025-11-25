@@ -1,19 +1,30 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
+import { useTagStore } from '../stores/tag'
 import BookForm from '../components/BookForm.vue'
 import NetworkSearch from '../components/NetworkSearch.vue'
+import TagSelector from '../components/TagSelector.vue'
 import type { BookInput, SearchResult } from '../types'
 import { downloadCover, fetchYoushuDetail } from '../api/search'
+import * as tagAPI from '../api/tag'
 
 const bookStore = useBookStore()
+const tagStore = useTagStore()
 const router = useRouter()
 const submitting = ref(false)
 const importing = ref(false)
 const feedback = ref<{ type: 'success' | 'error'; message: string } | null>(null)
 const activeTab = ref<'manual' | 'online'>('manual')
 const formInitialValue = ref<Partial<BookInput> | undefined>()
+const selectedTagIds = ref<number[]>([])
+
+onMounted(async () => {
+  if (tagStore.tags.length === 0) {
+    await tagStore.fetchTags()
+  }
+})
 
 function switchTab(tab: 'manual' | 'online'): void {
   activeTab.value = tab
@@ -34,6 +45,19 @@ async function handleSubmit(payload: BookInput): Promise<void> {
   try {
     submitting.value = true
     const book = await bookStore.createBook(payload)
+    
+    // 如果有选中的标签，批量添加
+    if (selectedTagIds.value.length > 0) {
+      try {
+        for (const tagId of selectedTagIds.value) {
+          await tagAPI.addTagToBook(book.id, tagId)
+        }
+      } catch (tagError) {
+        console.warn('添加标签失败:', tagError)
+        // 标签添加失败不影响书籍创建成功
+      }
+    }
+    
     feedback.value = { type: 'success', message: '书籍创建成功，正在跳转...' }
     setTimeout(() => {
       router.push(`/book/${book.id}`)
@@ -141,6 +165,10 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
         submit-label="保存书籍"
         @submit="handleSubmit"
       />
+      <div class="tag-section">
+        <h3 class="section-title">标签（可选）</h3>
+        <TagSelector v-model="selectedTagIds" />
+      </div>
     </div>
     <div v-else class="network-panel">
       <NetworkSearch :importing="importing" @import="handleImportFromSearch" />
@@ -218,6 +246,19 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
   margin-top: 8px;
   font-size: 13px;
   color: var(--color-text-tertiary);
+}
+
+.tag-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 12px;
 }
 
 @media (max-width: 640px) {

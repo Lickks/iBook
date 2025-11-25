@@ -122,17 +122,6 @@ CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(tag_name);
 
 -- ============================================
--- 初始数据（可选）
--- ============================================
-
--- 插入一些默认标签
-INSERT OR IGNORE INTO tags (tag_name, color) VALUES ('经典', '#409EFF');
-INSERT OR IGNORE INTO tags (tag_name, color) VALUES ('值得重读', '#67C23A');
-INSERT OR IGNORE INTO tags (tag_name, color) VALUES ('强烈推荐', '#E6A23C');
-INSERT OR IGNORE INTO tags (tag_name, color) VALUES ('神作', '#F56C6C');
-INSERT OR IGNORE INTO tags (tag_name, color) VALUES ('正在追更', '#909399');
-
--- ============================================
 -- 触发器：自动更新 updated_at
 -- ============================================
 CREATE TRIGGER IF NOT EXISTS update_books_timestamp 

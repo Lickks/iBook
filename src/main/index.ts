@@ -9,6 +9,7 @@ import { setupBookHandlers } from './ipc/bookHandler'
 import { setupDocumentHandlers } from './ipc/documentHandler'
 import { setupSearchHandlers } from './ipc/searchHandler'
 import { registerStatsHandlers } from './ipc/statsHandler'
+import { setupTagHandlers } from './ipc/tagHandler'
 
 function createWindow(): void {
   // Create the browser window.
@@ -68,6 +69,7 @@ app.whenReady().then(() => {
   setupDocumentHandlers()
   setupSearchHandlers()
   registerStatsHandlers()
+  setupTagHandlers()
 
   createWindow()
 

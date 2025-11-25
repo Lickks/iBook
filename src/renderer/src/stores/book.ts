@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { READING_STATUS } from '../constants'
 import type { Book, BookInput } from '../types'
 import * as bookAPI from '../api/book'
+import * as tagAPI from '../api/tag'
 
 /**
  * 书籍状态管理 Store
@@ -14,6 +15,11 @@ export const useBookStore = defineStore('book', () => {
   const loading = ref(false)
   const searchKeyword = ref('')
   const selectedStatus = ref<string | null>(null)
+  const selectedCategory = ref<string | null>(null)
+  const selectedPlatform = ref<string | null>(null)
+  const selectedTags = ref<number[]>([])
+  const sortBy = ref<'wordCount' | 'createdAt' | 'rating' | 'title' | 'author' | null>(null)
+  const sortOrder = ref<'asc' | 'desc'>('desc')
 
   // Getters
   const filteredBooks = computed(() => {
@@ -33,6 +39,88 @@ export const useBookStore = defineStore('book', () => {
     // 按阅读状态筛选
     if (selectedStatus.value) {
       result = result.filter(book => book.readingStatus === selectedStatus.value)
+    }
+
+    // 按类型筛选
+    if (selectedCategory.value) {
+      result = result.filter(book => book.category === selectedCategory.value)
+    }
+
+    // 按平台筛选
+    if (selectedPlatform.value) {
+      result = result.filter(book => book.platform === selectedPlatform.value)
+    }
+
+    // 按标签筛选
+    if (selectedTags.value.length > 0) {
+      result = result.filter(book => {
+        const bookTagIds = book.tags?.map(tag => tag.id) || []
+        return selectedTags.value.some(tagId => bookTagIds.includes(tagId))
+      })
+    }
+
+    // 排序
+    if (sortBy.value) {
+      result = [...result].sort((a, b) => {
+        let aValue: any
+        let bValue: any
+        let aSecondary: any
+        let bSecondary: any
+
+        switch (sortBy.value) {
+          case 'wordCount':
+            aValue = a.wordCountDisplay || 0
+            bValue = b.wordCountDisplay || 0
+            // 字数相同时按书名排序
+            aSecondary = a.title.toLowerCase()
+            bSecondary = b.title.toLowerCase()
+            break
+          case 'createdAt':
+            aValue = new Date(a.createdAt).getTime()
+            bValue = new Date(b.createdAt).getTime()
+            // 时间相同时按书名排序
+            aSecondary = a.title.toLowerCase()
+            bSecondary = b.title.toLowerCase()
+            break
+          case 'rating':
+            aValue = a.personalRating || 0
+            bValue = b.personalRating || 0
+            // 评分相同时按书名排序
+            aSecondary = a.title.toLowerCase()
+            bSecondary = b.title.toLowerCase()
+            break
+          case 'title':
+            aValue = a.title.toLowerCase()
+            bValue = b.title.toLowerCase()
+            break
+          case 'author':
+            // 按作者排序，空作者统一处理为"未知作者"
+            aValue = (a.author || '未知作者').toLowerCase()
+            bValue = (b.author || '未知作者').toLowerCase()
+            // 相同作者时按书名排序
+            aSecondary = a.title.toLowerCase()
+            bSecondary = b.title.toLowerCase()
+            break
+          default:
+            return 0
+        }
+
+        // 主排序
+        if (aValue < bValue) {
+          return sortOrder.value === 'asc' ? -1 : 1
+        }
+        if (aValue > bValue) {
+          return sortOrder.value === 'asc' ? 1 : -1
+        }
+        
+        // 主排序值相同时，使用次要排序（如果存在）
+        if (aSecondary !== undefined && bSecondary !== undefined) {
+          if (aSecondary < bSecondary) return sortOrder.value === 'asc' ? -1 : 1
+          if (aSecondary > bSecondary) return sortOrder.value === 'asc' ? 1 : -1
+        }
+        
+        return 0
+      })
     }
 
     return result
@@ -84,7 +172,34 @@ export const useBookStore = defineStore('book', () => {
 
   // 检查是否有筛选条件
   const hasActiveFilters = computed(() => {
-    return searchKeyword.value.trim() !== '' || selectedStatus.value !== null
+    return (
+      searchKeyword.value.trim() !== '' ||
+      selectedStatus.value !== null ||
+      selectedCategory.value !== null ||
+      selectedPlatform.value !== null ||
+      selectedTags.value.length > 0
+    )
+  })
+
+  // 获取所有可用的类型和平台
+  const availableCategories = computed(() => {
+    const categories = new Set<string>()
+    books.value.forEach(book => {
+      if (book.category) {
+        categories.add(book.category)
+      }
+    })
+    return Array.from(categories).sort()
+  })
+
+  const availablePlatforms = computed(() => {
+    const platforms = new Set<string>()
+    books.value.forEach(book => {
+      if (book.platform) {
+        platforms.add(book.platform)
+      }
+    })
+    return Array.from(platforms).sort()
   })
 
   // Actions
@@ -242,7 +357,53 @@ export const useBookStore = defineStore('book', () => {
   function clearAllFilters(): void {
     searchKeyword.value = ''
     selectedStatus.value = null
+    selectedCategory.value = null
+    selectedPlatform.value = null
+    selectedTags.value = []
+    sortBy.value = null
+    sortOrder.value = 'desc'
     fetchBooks()
+  }
+
+  /**
+   * 设置筛选类型
+   */
+  function setSelectedCategory(category: string | null): void {
+    selectedCategory.value = category
+  }
+
+  /**
+   * 设置筛选平台
+   */
+  function setSelectedPlatform(platform: string | null): void {
+    selectedPlatform.value = platform
+  }
+
+  /**
+   * 设置筛选标签
+   */
+  function setSelectedTags(tagIds: number[]): void {
+    selectedTags.value = tagIds
+  }
+
+  /**
+   * 切换标签筛选
+   */
+  function toggleTagFilter(tagId: number): void {
+    const index = selectedTags.value.indexOf(tagId)
+    if (index === -1) {
+      selectedTags.value = [...selectedTags.value, tagId]
+    } else {
+      selectedTags.value = selectedTags.value.filter(id => id !== tagId)
+    }
+  }
+
+  /**
+   * 设置排序
+   */
+  function setSort(sort: 'wordCount' | 'createdAt' | 'rating' | 'title' | 'author' | null, order: 'asc' | 'desc' = 'desc'): void {
+    sortBy.value = sort
+    sortOrder.value = order
   }
 
   /**
@@ -274,6 +435,45 @@ export const useBookStore = defineStore('book', () => {
     }
   }
 
+  /**
+   * 批量删除书籍
+   */
+  async function batchDeleteBooks(bookIds: number[]): Promise<number> {
+    loading.value = true
+    try {
+      const count = await bookAPI.deleteBatch(bookIds)
+      // 从本地状态中移除已删除的书籍
+      books.value = books.value.filter(book => !bookIds.includes(book.id))
+      return count
+    } catch (error: any) {
+      console.error('批量删除失败:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * 批量添加标签
+   */
+  async function batchAddTags(bookIds: number[], tagIds: number[]): Promise<void> {
+    loading.value = true
+    try {
+      const promises: Promise<number>[] = []
+      for (const tagId of tagIds) {
+        promises.push(tagAPI.batchAddTagToBooks(bookIds, tagId))
+      }
+      await Promise.all(promises)
+      // 刷新书籍列表以获取最新的标签信息
+      await fetchBooks()
+    } catch (error: any) {
+      console.error('批量添加标签失败:', error)
+      throw error
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     // State
     books,
@@ -281,12 +481,19 @@ export const useBookStore = defineStore('book', () => {
     loading,
     searchKeyword,
     selectedStatus,
+    selectedCategory,
+    selectedPlatform,
+    selectedTags,
+    sortBy,
+    sortOrder,
     // Getters
     filteredBooks,
     totalWordCount,
     booksByStatus,
     statusStats,
     hasActiveFilters,
+    availableCategories,
+    availablePlatforms,
     // Actions
     fetchBooks,
     fetchBookById,
@@ -299,7 +506,13 @@ export const useBookStore = defineStore('book', () => {
     setCurrentBook,
     setSelectedStatus,
     clearAllFilters,
-    batchUpdateStatus
+    batchUpdateStatus,
+    setSelectedCategory,
+    setSelectedPlatform,
+    setSelectedTags,
+    toggleTagFilter,
+    setSort,
+    batchDeleteBooks,
+    batchAddTags
   }
 })
-

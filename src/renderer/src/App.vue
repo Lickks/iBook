@@ -12,6 +12,7 @@ const router = useRouter()
 const navItems = [
   { name: 'Home', label: '书籍列表', icon: '📚', path: '/' },
   { name: 'AddBook', label: '添加书籍', icon: '✍️', path: '/add' },
+  { name: 'TagManagement', label: '标签管理', icon: '🏷️', path: '/tags' },
   { name: 'Statistics', label: '统计分析', icon: '📊', path: '/statistics' },
   { name: 'Settings', label: '设置', icon: '⚙️', path: '/settings' }
 ]

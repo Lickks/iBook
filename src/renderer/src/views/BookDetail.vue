@@ -2,14 +2,19 @@
 import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
+import { useTagStore } from '../stores/tag'
 import type { Book, BookInput, Document } from '../types'
 import BookForm from '../components/BookForm.vue'
+import TagSelector from '../components/TagSelector.vue'
+import TagList from '../components/TagList.vue'
 import { fetchYoushuDetail } from '../api/search'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import * as tagAPI from '../api/tag'
 
 const route = useRoute()
 const router = useRouter()
 const bookStore = useBookStore()
+const tagStore = useTagStore()
 
 const isEditing = ref(false)
 const confirmDelete = ref(false)
@@ -302,9 +307,39 @@ const wordCountInfo = computed(() => {
   }
 })
 
-onMounted(() => {
+// 标签管理
+const selectedTagIds = computed({
+  get: () => book.value?.tags?.map((tag) => tag.id) || [],
+  set: async (value: number[]) => {
+    if (!book.value) return
+    const currentTagIds = book.value.tags?.map((tag) => tag.id) || []
+    const toAdd = value.filter((id) => !currentTagIds.includes(id))
+    const toRemove = currentTagIds.filter((id) => !value.includes(id))
+
+    try {
+      // 添加新标签
+      for (const tagId of toAdd) {
+        await tagAPI.addTagToBook(bookId.value, tagId)
+      }
+      // 移除标签
+      for (const tagId of toRemove) {
+        await tagAPI.removeTagFromBook(bookId.value, tagId)
+      }
+      // 刷新书籍信息
+      await bookStore.fetchBookById(bookId.value)
+      ElMessage.success('标签更新成功')
+    } catch (error: any) {
+      ElMessage.error(error.message || '更新标签失败')
+    }
+  }
+})
+
+onMounted(async () => {
   loadBook()
   loadDocuments()
+  if (tagStore.tags.length === 0) {
+    await tagStore.fetchTags()
+  }
 })
 
 watch(
@@ -451,6 +486,20 @@ watch(
             }}
             ({{ formatWordCount(wordCountInfo.current) }})
           </p>
+        </div>
+      </section>
+
+      <!-- 标签管理区域 -->
+      <section class="tag-section">
+        <div class="section-header">
+          <h3>标签管理</h3>
+        </div>
+        <div class="tag-content">
+          <TagSelector v-model="selectedTagIds" />
+        </div>
+        <div v-if="book.tags && book.tags.length > 0" class="current-tags">
+          <h4>当前标签</h4>
+          <TagList :tags="book.tags" />
         </div>
       </section>
     </div>

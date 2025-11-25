@@ -19,6 +19,7 @@ export interface Book {
   sourceUrl?: string
   readingStatus: 'unread' | 'reading' | 'finished' | 'dropped' | 'to-read'
   personalRating?: number
+  tags?: Tag[]
   createdAt: string
   updatedAt: string
 }

@@ -195,7 +195,7 @@ class DatabaseService {
     const row = stmt.get(id) as any
     if (!row) return null
 
-    return {
+    const book: Book = {
       ...row,
       readingStatus: row.readingStatus || 'unread',
       wordCountSource: row.wordCountSource || 'search',
@@ -205,8 +205,11 @@ class DatabaseService {
         : (row.createdAt || null),
       updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
         ? row.updatedAt.toISOString()
-        : (row.updatedAt || null)
+        : (row.updatedAt || null),
+      tags: this.getTagsByBookId(id)
     }
+
+    return book
   }
 
   /**
@@ -242,7 +245,8 @@ class DatabaseService {
         : (row.createdAt || null),
       updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
         ? row.updatedAt.toISOString()
-        : (row.updatedAt || null)
+        : (row.updatedAt || null),
+      tags: this.getTagsByBookId(row.id)
     }))
   }
 
@@ -340,6 +344,18 @@ class DatabaseService {
     return changes > 0
   }
 
+  /**
+   * 批量删除书籍
+   */
+  deleteBooks(ids: number[]): number {
+    if (ids.length === 0) return 0
+    const db = this.getDatabase()
+    const placeholders = ids.map(() => '?').join(',')
+    const stmt = db.prepare(`DELETE FROM books WHERE id IN (${placeholders})`)
+    const result = stmt.run(...ids)
+    return result && typeof result.changes === 'number' ? result.changes : 0
+  }
+
   
   /**
    * 搜索书籍
@@ -376,7 +392,8 @@ class DatabaseService {
         : (row.createdAt || null),
       updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
         ? row.updatedAt.toISOString()
-        : (row.updatedAt || null)
+        : (row.updatedAt || null),
+      tags: this.getTagsByBookId(row.id)
     }))
   }
 
@@ -816,6 +833,43 @@ class DatabaseService {
         ? row.createdAt.toISOString()
         : (row.createdAt || null)
     }))
+  }
+
+  /**
+   * 批量为书籍添加标签
+   */
+  batchAddTagToBooks(bookIds: number[], tagId: number): number {
+    if (bookIds.length === 0) return 0
+    const db = this.getDatabase()
+    const transaction = db.transaction((bookIds: number[], tagId: number) => {
+      const stmt = db.prepare(`
+        INSERT OR IGNORE INTO book_tags (book_id, tag_id)
+        VALUES (?, ?)
+      `)
+      let count = 0
+      for (const bookId of bookIds) {
+        const result = stmt.run(bookId, tagId)
+        if (result && typeof result.changes === 'number' && result.changes > 0) {
+          count++
+        }
+      }
+      return count
+    })
+    return transaction(bookIds, tagId)
+  }
+
+  /**
+   * 获取标签的使用统计（有多少本书使用了该标签）
+   */
+  getTagUsageCount(tagId: number): number {
+    const db = this.getDatabase()
+    const stmt = db.prepare(`
+      SELECT COUNT(*) as count
+      FROM book_tags
+      WHERE tag_id = ?
+    `)
+    const row = stmt.get(tagId) as any
+    return row?.count || 0
   }
 
   // ============================================

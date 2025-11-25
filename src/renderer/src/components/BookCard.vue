@@ -6,6 +6,7 @@ import { useBookStore } from '../stores/book'
 import { useDisplayModeStore } from '../stores/displayMode'
 import { READING_STATUS_LABEL } from '../constants'
 import type { Book } from '../types'
+import TagList from './TagList.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -230,6 +231,11 @@ onUnmounted(() => {
         <!-- 经典模式：显示评分 -->
         <span v-if="displayModeStore.isClassicMode" class="dot">•</span>
         <span v-if="displayModeStore.isClassicMode">评分：{{ book.personalRating ?? '暂无' }}</span>
+      </div>
+
+      <!-- 标签展示 -->
+      <div v-if="book.tags && book.tags.length > 0" class="tags">
+        <TagList :tags="book.tags" :size="'small'" />
       </div>
     </div>
   </article>
@@ -510,6 +516,12 @@ onUnmounted(() => {
   color: var(--color-accent);
   font-weight: 600;
   font-size: 12px;
+}
+
+.tags {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
 }
 
 mark {
