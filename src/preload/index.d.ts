@@ -14,6 +14,7 @@ declare global {
         getById: (id: number) => Promise<ApiResponse>
         getAll: () => Promise<ApiResponse>
         search: (keyword: string) => Promise<ApiResponse>
+        getPaginated: (page: number, pageSize: number, filters?: any, sort?: any) => Promise<ApiResponse>
       }
       document: {
         selectFile: () => Promise<ApiResponse<string>>

@@ -104,6 +104,10 @@ CREATE INDEX IF NOT EXISTS idx_books_status ON books(reading_status);
 CREATE INDEX IF NOT EXISTS idx_books_created_at ON books(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_books_updated_at ON books(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_books_rating ON books(personal_rating);
+-- 复合索引：用于类型和平台筛选
+CREATE INDEX IF NOT EXISTS idx_books_category_platform ON books(category, platform);
+-- 复合索引：用于搜索优化（title和author）
+CREATE INDEX IF NOT EXISTS idx_books_title_author ON books(title, author);
 
 -- 文档表索引
 CREATE INDEX IF NOT EXISTS idx_documents_book_id ON documents(book_id);
@@ -120,6 +124,11 @@ CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at DESC);
 
 -- 标签表索引
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(tag_name);
+
+-- 书籍标签关联表索引（优化关联查询）
+CREATE INDEX IF NOT EXISTS idx_book_tags_book_id ON book_tags(book_id);
+CREATE INDEX IF NOT EXISTS idx_book_tags_tag_id ON book_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_book_tags_composite ON book_tags(book_id, tag_id);
 
 -- ============================================
 -- 触发器：自动更新 updated_at

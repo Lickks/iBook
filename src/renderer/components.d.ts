@@ -41,5 +41,6 @@ declare module 'vue' {
     TagSelector: typeof import('./src/components/TagSelector.vue')['default']
     ThemeSelector: typeof import('./src/components/ThemeSelector.vue')['default']
     Versions: typeof import('./src/components/Versions.vue')['default']
+    VirtualList: typeof import('./src/components/VirtualList.vue')['default']
   }
 }

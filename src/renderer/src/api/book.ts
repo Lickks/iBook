@@ -2,7 +2,7 @@
  * 书籍相关 API
  */
 
-import type { Book, BookInput } from '../types'
+import type { Book, BookInput, BookFilters, BookSort, PaginatedResult } from '../types'
 import type { ApiResponse } from '../types/api'
 
 /**
@@ -83,5 +83,21 @@ export async function searchBooks(keyword: string): Promise<Book[]> {
     return response.data
   }
   throw new Error(response.error || '搜索书籍失败')
+}
+
+/**
+ * 分页查询书籍
+ */
+export async function getBooksPaginated(
+  page: number = 1,
+  pageSize: number = 20,
+  filters?: BookFilters,
+  sort?: BookSort
+): Promise<PaginatedResult<Book>> {
+  const response = await window.api.book.getPaginated(page, pageSize, filters, sort)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '分页查询书籍失败')
 }
 

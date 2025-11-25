@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
 import { readFileSync } from 'fs'
+import { cacheService } from './cache'
 import type {
   Book,
   BookInput,
@@ -12,7 +13,10 @@ import type {
   Tag,
   TagInput,
   ReadingProgress,
-  ReadingProgressInput
+  ReadingProgressInput,
+  BookFilters,
+  BookSort,
+  PaginatedResult
 } from '../../renderer/src/types/book'
 
 /**
@@ -167,6 +171,10 @@ class DatabaseService {
     if (!insertId) {
       throw new Error('创建书籍失败：无法获取插入的ID')
     }
+
+    // 清除相关缓存
+    cacheService.clearPattern('^books:')
+
     return this.getBookById(insertId)!
   }
 
@@ -213,9 +221,17 @@ class DatabaseService {
   }
 
   /**
-   * 获取所有书籍
+   * 获取所有书籍（带缓存）
    */
   getAllBooks(): Book[] {
+    const cacheKey = 'books:all'
+    
+    // 尝试从缓存获取
+    const cached = cacheService.get<Book[]>(cacheKey)
+    if (cached) {
+      return cached
+    }
+
     const db = this.getDatabase()
     const stmt = db.prepare(`
       SELECT
@@ -235,7 +251,12 @@ class DatabaseService {
     `)
 
     const rows = stmt.all() as any[]
-    return rows.map((row) => ({
+    
+    // 批量获取所有书籍的标签，避免N+1查询
+    const bookIds = rows.map(row => row.id)
+    const tagsMap = this.getTagsByBookIds(bookIds)
+
+    const books = rows.map((row) => ({
       ...row,
       readingStatus: row.readingStatus || 'unread',
       wordCountSource: row.wordCountSource || 'search',
@@ -246,8 +267,13 @@ class DatabaseService {
       updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
         ? row.updatedAt.toISOString()
         : (row.updatedAt || null),
-      tags: this.getTagsByBookId(row.id)
+      tags: tagsMap.get(row.id) || []
     }))
+
+    // 存入缓存
+    cacheService.set(cacheKey, books)
+
+    return books
   }
 
   /**
@@ -329,6 +355,9 @@ class DatabaseService {
     const stmt = db.prepare(`UPDATE books SET ${fields.join(', ')} WHERE id = ?`)
     stmt.run(...values)
 
+    // 清除相关缓存
+    cacheService.clearPattern('^books:')
+
     return this.getBookById(id)
   }
 
@@ -341,6 +370,12 @@ class DatabaseService {
     const result = stmt.run(id)
     // 确保只返回基本数据类型，避免可能的序列化问题
     const changes = result && typeof result.changes === 'number' ? result.changes : 0
+    
+    // 清除相关缓存
+    if (changes > 0) {
+      cacheService.clearPattern('^books:')
+    }
+    
     return changes > 0
   }
 
@@ -357,6 +392,137 @@ class DatabaseService {
   }
 
   
+  /**
+   * 分页查询书籍（支持筛选和排序）
+   */
+  getBooksPaginated(
+    page: number = 1,
+    pageSize: number = 20,
+    filters?: BookFilters,
+    sort?: BookSort
+  ): PaginatedResult<Book> {
+    const db = this.getDatabase()
+    const offset = (page - 1) * pageSize
+
+    // 构建WHERE条件
+    const conditions: string[] = []
+    const params: any[] = []
+
+    if (filters?.readingStatus) {
+      conditions.push('reading_status = ?')
+      params.push(filters.readingStatus)
+    }
+
+    if (filters?.category) {
+      conditions.push('category = ?')
+      params.push(filters.category)
+    }
+
+    if (filters?.platform) {
+      conditions.push('platform = ?')
+      params.push(filters.platform)
+    }
+
+    if (filters?.keyword) {
+      const searchTerm = `%${filters.keyword}%`
+      conditions.push('(title LIKE ? OR author LIKE ? OR description LIKE ?)')
+      params.push(searchTerm, searchTerm, searchTerm)
+    }
+
+    // 标签筛选需要JOIN
+    let tagJoin = ''
+    if (filters?.tagIds && filters.tagIds.length > 0) {
+      tagJoin = `INNER JOIN book_tags bt_filter ON b.id = bt_filter.book_id`
+      const placeholders = filters.tagIds.map(() => '?').join(',')
+      conditions.push(`bt_filter.tag_id IN (${placeholders})`)
+      params.push(...filters.tagIds)
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+
+    // 构建ORDER BY子句
+    let orderBy = 'ORDER BY created_at DESC'
+    if (sort?.sortBy) {
+      switch (sort.sortBy) {
+        case 'wordCount':
+          orderBy = `ORDER BY word_count_display ${sort.sortOrder || 'desc'}`
+          break
+        case 'createdAt':
+          orderBy = `ORDER BY created_at ${sort.sortOrder || 'desc'}`
+          break
+        case 'rating':
+          orderBy = `ORDER BY personal_rating ${sort.sortOrder || 'desc'}`
+          break
+        case 'title':
+          orderBy = `ORDER BY title ${sort.sortOrder || 'asc'}`
+          break
+        case 'author':
+          orderBy = `ORDER BY author ${sort.sortOrder || 'asc'}, title ${sort.sortOrder || 'asc'}`
+          break
+        default:
+          orderBy = 'ORDER BY created_at DESC'
+      }
+    }
+
+    // 查询总数
+    const countStmt = db.prepare(`
+      SELECT COUNT(DISTINCT b.id) as total
+      FROM books b
+      ${tagJoin}
+      ${whereClause}
+    `)
+    const countResult = countStmt.get(...params) as { total: number }
+    const total = countResult?.total || 0
+
+    // 查询数据
+    const dataStmt = db.prepare(`
+      SELECT DISTINCT
+        b.id, b.title, b.author, b.cover_url as coverUrl, b.platform, b.category, b.description,
+        b.word_count_source as wordCountSource,
+        b.word_count_search as wordCountSearch,
+        b.word_count_document as wordCountDocument,
+        b.word_count_manual as wordCountManual,
+        b.word_count_display as wordCountDisplay,
+        b.isbn, b.source_url as sourceUrl,
+        b.reading_status as readingStatus,
+        b.personal_rating as personalRating,
+        b.created_at as createdAt,
+        b.updated_at as updatedAt
+      FROM books b
+      ${tagJoin}
+      ${whereClause}
+      ${orderBy}
+      LIMIT ? OFFSET ?
+    `)
+
+    const rows = dataStmt.all(...params, pageSize, offset) as any[]
+
+    // 批量获取标签
+    const bookIds = rows.map(row => row.id)
+    const tagsMap = this.getTagsByBookIds(bookIds)
+
+    const items = rows.map((row) => ({
+      ...row,
+      readingStatus: row.readingStatus || 'unread',
+      wordCountSource: row.wordCountSource || 'search',
+      createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+        ? row.createdAt.toISOString()
+        : (row.createdAt || null),
+      updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
+        ? row.updatedAt.toISOString()
+        : (row.updatedAt || null),
+      tags: tagsMap.get(row.id) || []
+    }))
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize)
+    }
+  }
+
   /**
    * 搜索书籍
    */
@@ -382,6 +548,11 @@ class DatabaseService {
     `)
 
     const rows = stmt.all(searchTerm, searchTerm, searchTerm) as any[]
+    
+    // 批量获取所有书籍的标签，避免N+1查询
+    const bookIds = rows.map(row => row.id)
+    const tagsMap = this.getTagsByBookIds(bookIds)
+
     return rows.map((row) => ({
       ...row,
       readingStatus: row.readingStatus || 'unread',
@@ -393,7 +564,7 @@ class DatabaseService {
       updatedAt: row.updatedAt && typeof row.updatedAt === 'object' && row.updatedAt instanceof Date
         ? row.updatedAt.toISOString()
         : (row.updatedAt || null),
-      tags: this.getTagsByBookId(row.id)
+      tags: tagsMap.get(row.id) || []
     }))
   }
 
@@ -833,6 +1004,52 @@ class DatabaseService {
         ? row.createdAt.toISOString()
         : (row.createdAt || null)
     }))
+  }
+
+  /**
+   * 批量获取多个书籍的标签（优化N+1查询问题）
+   */
+  getTagsByBookIds(bookIds: number[]): Map<number, Tag[]> {
+    if (bookIds.length === 0) {
+      return new Map()
+    }
+
+    const db = this.getDatabase()
+    const placeholders = bookIds.map(() => '?').join(',')
+    const stmt = db.prepare(`
+      SELECT
+        bt.book_id as bookId,
+        t.id, t.tag_name as tagName, t.color, t.created_at as createdAt
+      FROM tags t
+      INNER JOIN book_tags bt ON t.id = bt.tag_id
+      WHERE bt.book_id IN (${placeholders})
+      ORDER BY bt.book_id, t.created_at DESC
+    `)
+
+    const rows = stmt.all(...bookIds) as any[]
+    const tagMap = new Map<number, Tag[]>()
+
+    // 初始化所有书籍ID的标签数组
+    bookIds.forEach(id => {
+      tagMap.set(id, [])
+    })
+
+    // 填充标签数据
+    rows.forEach((row) => {
+      const bookId = row.bookId
+      if (tagMap.has(bookId)) {
+        tagMap.get(bookId)!.push({
+          id: row.id,
+          tagName: row.tagName,
+          color: row.color,
+          createdAt: row.createdAt && typeof row.createdAt === 'object' && row.createdAt instanceof Date
+            ? row.createdAt.toISOString()
+            : (row.createdAt || null)
+        })
+      }
+    })
+
+    return tagMap
   }
 
   /**

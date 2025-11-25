@@ -1,6 +1,6 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron'
 import { databaseService } from '../services/database'
-import type { BookInput } from '../../renderer/src/types/book'
+import type { BookInput, BookFilters, BookSort } from '../../renderer/src/types/book'
 
 /**
  * 书籍相关的 IPC 处理器
@@ -148,5 +148,30 @@ export function setupBookHandlers(): void {
       }
     }
   })
+
+  /**
+   * 分页查询书籍
+   */
+  ipcMain.handle(
+    'book:getPaginated',
+    async (
+      _event: IpcMainInvokeEvent,
+      page: number,
+      pageSize: number,
+      filters?: BookFilters,
+      sort?: BookSort
+    ) => {
+      try {
+        const result = databaseService.getBooksPaginated(page, pageSize, filters, sort)
+        return { success: true, data: result }
+      } catch (error: any) {
+        console.error('分页查询书籍失败:', error)
+        return {
+          success: false,
+          error: error?.message || '分页查询书籍失败'
+        }
+      }
+    }
+  )
 }
 

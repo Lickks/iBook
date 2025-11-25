@@ -121,3 +121,33 @@ export interface DocumentInput {
   wordCount?: number
 }
 
+/**
+ * 分页查询筛选条件
+ */
+export interface BookFilters {
+  readingStatus?: string | null
+  category?: string | null
+  platform?: string | null
+  tagIds?: number[]
+  keyword?: string
+}
+
+/**
+ * 排序选项
+ */
+export interface BookSort {
+  sortBy?: 'wordCount' | 'createdAt' | 'rating' | 'title' | 'author' | null
+  sortOrder?: 'asc' | 'desc'
+}
+
+/**
+ * 分页结果
+ */
+export interface PaginatedResult<T> {
+  items: T[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+

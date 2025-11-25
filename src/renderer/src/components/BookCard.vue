@@ -8,6 +8,8 @@ import { READING_STATUS_LABEL } from '../constants'
 import type { Book } from '../types'
 import TagList from './TagList.vue'
 
+const imageError = ref(false)
+
 const props = withDefaults(
   defineProps<{
     book: Book
@@ -202,8 +204,14 @@ onUnmounted(() => {
     </div>
 
     <div class="cover">
-      <img v-if="book.coverUrl" :src="book.coverUrl" :alt="book.title" loading="lazy" />
-      <span v-else>{{ coverFallback(book.title) }}</span>
+      <img
+        v-if="book.coverUrl && !imageError"
+        :src="book.coverUrl"
+        :alt="book.title"
+        loading="lazy"
+        @error="imageError = true"
+      />
+      <span v-if="!book.coverUrl || imageError">{{ coverFallback(book.title) }}</span>
     </div>
 
     <div class="info">

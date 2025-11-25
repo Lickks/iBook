@@ -15,7 +15,14 @@ const api = {
       ipcRenderer.invoke('book:deleteBatch', ids),
     getById: (id: number): Promise<ApiResponse> => ipcRenderer.invoke('book:getById', id),
     getAll: (): Promise<ApiResponse> => ipcRenderer.invoke('book:getAll'),
-    search: (keyword: string): Promise<ApiResponse> => ipcRenderer.invoke('book:search', keyword)
+    search: (keyword: string): Promise<ApiResponse> => ipcRenderer.invoke('book:search', keyword),
+    getPaginated: (
+      page: number,
+      pageSize: number,
+      filters?: any,
+      sort?: any
+    ): Promise<ApiResponse> =>
+      ipcRenderer.invoke('book:getPaginated', page, pageSize, filters, sort)
   },
 
   // 文档操作

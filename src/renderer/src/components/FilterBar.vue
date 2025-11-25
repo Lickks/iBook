@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useBookStore } from '../stores/book'
 import { useTagStore } from '../stores/tag'
 import { SORT_BY, SORT_BY_LABEL, SORT_ORDER, SORT_ORDER_LABEL } from '../constants'
@@ -8,14 +8,38 @@ import TagList from './TagList.vue'
 const bookStore = useBookStore()
 const tagStore = useTagStore()
 
+// 防抖定时器
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+// 本地状态，用于防抖
+const localCategory = ref<string | null>(bookStore.selectedCategory)
+const localPlatform = ref<string | null>(bookStore.selectedPlatform)
+
+// 防抖更新函数
+function debouncedUpdate(): void {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+  }
+  debounceTimer = setTimeout(() => {
+    bookStore.setSelectedCategory(localCategory.value)
+    bookStore.setSelectedPlatform(localPlatform.value)
+  }, 300)
+}
+
 const selectedCategory = computed({
-  get: () => bookStore.selectedCategory,
-  set: (value) => bookStore.setSelectedCategory(value)
+  get: () => localCategory.value,
+  set: (value) => {
+    localCategory.value = value
+    debouncedUpdate()
+  }
 })
 
 const selectedPlatform = computed({
-  get: () => bookStore.selectedPlatform,
-  set: (value) => bookStore.setSelectedPlatform(value)
+  get: () => localPlatform.value,
+  set: (value) => {
+    localPlatform.value = value
+    debouncedUpdate()
+  }
 })
 
 const selectedTags = computed({
@@ -42,6 +66,12 @@ const selectedTagObjects = computed(() => {
 onMounted(async () => {
   if (tagStore.tags.length === 0) {
     await tagStore.fetchTags()
+  }
+})
+
+onBeforeUnmount(() => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
   }
 })
 

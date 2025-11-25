@@ -11,6 +11,7 @@ import BookCard from '../components/BookCard.vue'
 import DisplayModeToggle from '../components/DisplayModeToggle.vue'
 import FilterBar from '../components/FilterBar.vue'
 import SkeletonLoader from '../components/SkeletonLoader.vue'
+import VirtualList from '../components/VirtualList.vue'
 import { useTagStore } from '../stores/tag'
 import TagSelector from '../components/TagSelector.vue'
 
@@ -29,6 +30,10 @@ const selectedStatus = computed({
 })
 const statusStats = computed(() => bookStore.statusStats)
 const hasActiveFilters = computed(() => bookStore.hasActiveFilters)
+
+// 虚拟滚动：仅在书籍数量超过50本时启用
+const enableVirtualScroll = computed(() => filteredBooks.value.length > 50)
+const virtualItemHeight = computed(() => (viewMode.value === 'grid' ? 350 : 180))
 
 // 选择相关状态
 const selectedBooks = ref<number[]>([])
@@ -292,10 +297,35 @@ function openBatchTagDialog(): void {
         </div>
         <p v-else>未找到匹配的书籍，尝试调整搜索关键词。</p>
       </div>
+      <!-- 虚拟滚动：仅在书籍数量超过50本时启用 -->
+      <VirtualList
+        v-else-if="enableVirtualScroll"
+        :items="filteredBooks"
+        :item-height="virtualItemHeight"
+        :container-height="600"
+      >
+        <template #default="{ items: visibleItems }">
+          <div :class="['book-collection', viewMode]">
+            <BookCard
+              v-for="book in visibleItems"
+              :key="book.id"
+              v-memo="[book.id, book.readingStatus, book.title, viewMode, highlight, selectionMode, selectedBooks.includes(book.id)]"
+              :book="book"
+              :view="viewMode"
+              :highlight="highlight"
+              :selectable="selectionMode"
+              :selected="selectedBooks.includes(book.id)"
+              @toggle-select="toggleBookSelection"
+            />
+          </div>
+        </template>
+      </VirtualList>
+      <!-- 普通渲染：书籍数量少于50本时使用 -->
       <TransitionGroup v-else :class="['book-collection', viewMode]" name="book-list" tag="div">
         <BookCard
           v-for="book in filteredBooks"
           :key="book.id"
+          v-memo="[book.id, book.readingStatus, book.title, viewMode, highlight, selectionMode, selectedBooks.includes(book.id)]"
           :book="book"
           :view="viewMode"
           :highlight="highlight"

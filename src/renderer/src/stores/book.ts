@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, shallowRef } from 'vue'
 import { READING_STATUS } from '../constants'
 import type { Book, BookInput } from '../types'
 import * as bookAPI from '../api/book'
@@ -9,8 +9,8 @@ import * as tagAPI from '../api/tag'
  * 书籍状态管理 Store
  */
 export const useBookStore = defineStore('book', () => {
-  // State
-  const books = ref<Book[]>([])
+  // State - 使用 shallowRef 优化数组引用，减少深度响应式开销
+  const books = shallowRef<Book[]>([])
   const currentBook = ref<Book | null>(null)
   const loading = ref(false)
   const searchKeyword = ref('')
@@ -21,8 +21,20 @@ export const useBookStore = defineStore('book', () => {
   const sortBy = ref<'wordCount' | 'createdAt' | 'rating' | 'title' | 'author' | null>(null)
   const sortOrder = ref<'asc' | 'desc'>('desc')
 
-  // Getters
+  // 缓存 filteredBooks 的计算结果
+  let filteredBooksCache: Book[] | null = null
+  let filteredBooksCacheKey: string = ''
+
+  // Getters - 使用缓存优化计算属性
   const filteredBooks = computed(() => {
+    // 生成缓存键
+    const cacheKey = `${books.value.length}-${searchKeyword.value}-${selectedStatus.value}-${selectedCategory.value}-${selectedPlatform.value}-${selectedTags.value.join(',')}-${sortBy.value}-${sortOrder.value}`
+    
+    // 如果缓存键相同，直接返回缓存结果
+    if (cacheKey === filteredBooksCacheKey && filteredBooksCache !== null) {
+      return filteredBooksCache
+    }
+
     let result = books.value
 
     // 按搜索关键词筛选
@@ -123,6 +135,10 @@ export const useBookStore = defineStore('book', () => {
       })
     }
 
+    // 更新缓存
+    filteredBooksCache = result
+    filteredBooksCacheKey = cacheKey
+
     return result
   })
 
@@ -209,7 +225,12 @@ export const useBookStore = defineStore('book', () => {
   async function fetchBooks(): Promise<void> {
     loading.value = true
     try {
-      books.value = await bookAPI.getAllBooks()
+      const fetchedBooks = await bookAPI.getAllBooks()
+      // 使用 shallowRef 时，需要替换整个数组引用
+      books.value = fetchedBooks
+      // 清除缓存
+      filteredBooksCache = null
+      filteredBooksCacheKey = ''
     } catch (error: any) {
       console.error('获取书籍列表失败:', error)
       throw error
@@ -245,7 +266,11 @@ export const useBookStore = defineStore('book', () => {
     loading.value = true
     try {
       const book = await bookAPI.createBook(input)
-      books.value.unshift(book) // 添加到列表开头
+      // 使用新数组引用，触发 shallowRef 更新
+      books.value = [book, ...books.value]
+      // 清除缓存
+      filteredBooksCache = null
+      filteredBooksCacheKey = ''
       return book
     } catch (error: any) {
       console.error('创建书籍失败:', error)
@@ -262,15 +287,20 @@ export const useBookStore = defineStore('book', () => {
     loading.value = true
     try {
       const book = await bookAPI.updateBook(id, input)
-      // 更新列表中的书籍
+      // 更新列表中的书籍 - 使用新数组引用
       const index = books.value.findIndex((b) => b.id === id)
       if (index !== -1) {
-        books.value[index] = book
+        const newBooks = [...books.value]
+        newBooks[index] = book
+        books.value = newBooks
       }
       // 如果当前书籍被更新，也更新 currentBook
       if (currentBook.value?.id === id) {
         currentBook.value = book
       }
+      // 清除缓存
+      filteredBooksCache = null
+      filteredBooksCacheKey = ''
       return book
     } catch (error: any) {
       console.error('更新书籍失败:', error)
@@ -287,12 +317,15 @@ export const useBookStore = defineStore('book', () => {
     loading.value = true
     try {
       await bookAPI.deleteBook(id)
-      // 从列表中移除
+      // 从列表中移除 - 使用新数组引用
       books.value = books.value.filter((b) => b.id !== id)
       // 如果删除的是当前书籍，清空 currentBook
       if (currentBook.value?.id === id) {
         currentBook.value = null
       }
+      // 清除缓存
+      filteredBooksCache = null
+      filteredBooksCacheKey = ''
     } catch (error: any) {
       console.error('删除书籍失败:', error)
       throw error
@@ -313,7 +346,11 @@ export const useBookStore = defineStore('book', () => {
         await fetchBooks()
         return
       }
-      books.value = await bookAPI.searchBooks(keyword)
+      const searchedBooks = await bookAPI.searchBooks(keyword)
+      books.value = searchedBooks
+      // 清除缓存
+      filteredBooksCache = null
+      filteredBooksCacheKey = ''
     } catch (error: any) {
       console.error('搜索书籍失败:', error)
       throw error
@@ -418,13 +455,18 @@ export const useBookStore = defineStore('book', () => {
 
       const updatedBooks = await Promise.all(updatePromises)
 
-      // 更新本地状态
+      // 更新本地状态 - 使用新数组引用
+      const newBooks = [...books.value]
       updatedBooks.forEach(book => {
-        const index = books.value.findIndex(b => b.id === book.id)
+        const index = newBooks.findIndex(b => b.id === book.id)
         if (index !== -1) {
-          books.value[index] = book
+          newBooks[index] = book
         }
       })
+      books.value = newBooks
+      // 清除缓存
+      filteredBooksCache = null
+      filteredBooksCacheKey = ''
 
       return updatedBooks
     } catch (error: any) {
@@ -442,8 +484,11 @@ export const useBookStore = defineStore('book', () => {
     loading.value = true
     try {
       const count = await bookAPI.deleteBatch(bookIds)
-      // 从本地状态中移除已删除的书籍
+      // 从本地状态中移除已删除的书籍 - 使用新数组引用
       books.value = books.value.filter(book => !bookIds.includes(book.id))
+      // 清除缓存
+      filteredBooksCache = null
+      filteredBooksCacheKey = ''
       return count
     } catch (error: any) {
       console.error('批量删除失败:', error)
