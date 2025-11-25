@@ -8,6 +8,7 @@ import { READING_STATUS_LABEL } from '../constants'
 import SearchBar from '../components/SearchBar.vue'
 import StatusStats from '../components/StatusStats.vue'
 import BookCard from '../components/BookCard.vue'
+import DisplayModeToggle from '../components/DisplayModeToggle.vue'
 
 const bookStore = useBookStore()
 const uiStore = useUIStore()
@@ -110,6 +111,7 @@ async function handleBatchStatusUpdate(status: string): Promise<void> {
       </div>
       <div class="section-actions">
         <div class="action-group">
+          <DisplayModeToggle />
           <button
             type="button"
             class="secondary-btn"

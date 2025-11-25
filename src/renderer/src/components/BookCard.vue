@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useBookStore } from '../stores/book'
+import { useDisplayModeStore } from '../stores/displayMode'
 import { READING_STATUS_LABEL } from '../constants'
 import type { Book } from '../types'
 
@@ -21,6 +22,8 @@ const props = withDefaults(
     selected: false
   }
 )
+
+const displayModeStore = useDisplayModeStore()
 
 const emit = defineEmits<{
   (e: 'toggle-select', id: number): void
@@ -204,12 +207,29 @@ onUnmounted(() => {
 
     <div class="info">
       <span class="title" v-html="highlightText(book.title)" />
-      <p class="meta">
+
+      <!-- 简约模式：只显示作者 -->
+      <p v-if="displayModeStore.isSimpleMode" class="meta">
         <span v-html="highlightText(book.author || '未知作者')" />
       </p>
 
+      <!-- 经典模式：显示作者 • 类型 • 平台 -->
+      <p v-else class="meta">
+        <span v-html="highlightText(book.author || '未知作者')" />
+        <span class="dot">•</span>
+        <span>{{ book.category || '未知类型' }}</span>
+        <span class="dot">•</span>
+        <span>{{ book.platform || '未知平台' }}</span>
+      </p>
+
+      <!-- 经典模式：显示简介 -->
+      <p v-if="displayModeStore.isClassicMode" class="description" v-html="highlightText(book.description || '暂无简介')" />
+
       <div class="stats">
         <span>{{ formatWordCount(book.wordCountDisplay) }}</span>
+        <!-- 经典模式：显示评分 -->
+        <span v-if="displayModeStore.isClassicMode" class="dot">•</span>
+        <span v-if="displayModeStore.isClassicMode">评分：{{ book.personalRating ?? '暂无' }}</span>
       </div>
     </div>
   </article>
@@ -359,10 +379,13 @@ onUnmounted(() => {
 }
 
 .description {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--color-text-secondary);
-  max-height: 48px;
   overflow: hidden;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .stats {

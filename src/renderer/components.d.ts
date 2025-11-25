@@ -15,6 +15,7 @@ declare module 'vue' {
     BaseChart: typeof import('./src/components/stats/BaseChart.vue')['default']
     BookCard: typeof import('./src/components/BookCard.vue')['default']
     BookForm: typeof import('./src/components/BookForm.vue')['default']
+    DisplayModeToggle: typeof import('./src/components/DisplayModeToggle.vue')['default']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElButtonGroup: typeof import('element-plus/es')['ElButtonGroup']
     ElCheckbox: typeof import('element-plus/es')['ElCheckbox']
