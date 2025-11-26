@@ -16,6 +16,18 @@ export function filterTitleForSearch(title: string): string {
 }
 
 /**
+ * 规范化书名用于判断是否为同一本书
+ * 去除括号及其内容，例如 "A（1）" -> "A"，"A（2）" -> "A"
+ * 用于批量导入时判断书籍是否已存在
+ */
+export function normalizeTitleForComparison(title: string): string {
+  if (!title) return ''
+  // 移除括号及其内容，包括中文括号和英文括号
+  // 同时去除首尾空格
+  return title.replace(/[（(][^）)]*[）)]/g, '').trim()
+}
+
+/**
  * 并发控制：限制同时执行的异步任务数量
  * @param tasks 任务数组，每个任务返回 Promise
  * @param concurrency 最大并发数，默认 5
@@ -79,13 +91,12 @@ export async function pLimit<T>(
   const remainingTasks = taskPromises.slice(concurrency)
 
   // 将剩余任务加入队列
-  remainingTasks.forEach(task => {
+  remainingTasks.forEach((task) => {
     queue.push(task)
   })
 
   // 执行初始批次
-  await Promise.all(initialBatch.map(task => task()))
+  await Promise.all(initialBatch.map((task) => task()))
 
   return results
 }
-

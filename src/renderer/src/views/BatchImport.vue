@@ -3,10 +3,10 @@ import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { SearchResult, BookInput } from '../types'
+import type { SearchResult, BookInput, Book } from '../types'
 import { batchSearchYoushu, downloadCover, fetchYoushuDetail, searchYoushu } from '../api/search'
-import { filterTitleForSearch } from '../utils'
-import * as tagAPI from '../api/tag'
+import { filterTitleForSearch, normalizeTitleForComparison } from '../utils'
+import * as bookAPI from '../api/book'
 
 // 工具函数：从文件路径提取文件名
 function getFileName(filePath: string): string {
@@ -32,8 +32,8 @@ const titleInput = ref('')
 const titles = computed(() => {
   return titleInput.value
     .split('\n')
-    .map(t => t.trim())
-    .filter(t => t.length > 0)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0)
 })
 
 // 方式2：文件列表
@@ -78,12 +78,12 @@ const showPreview = ref(false)
 
 // 全选状态
 const isAllSelected = computed(() => {
-  return previewItems.value.length > 0 && previewItems.value.every(item => item.selected)
+  return previewItems.value.length > 0 && previewItems.value.every((item) => item.selected)
 })
 
 // 部分选中状态
 const isIndeterminate = computed(() => {
-  const selectedCount = previewItems.value.filter(item => item.selected).length
+  const selectedCount = previewItems.value.filter((item) => item.selected).length
   return selectedCount > 0 && selectedCount < previewItems.value.length
 })
 
@@ -93,30 +93,41 @@ const onlySelectSuccess = ref(true)
 // 检索成功/失败统计
 const searchStats = computed(() => {
   const total = previewItems.value.length
-  const success = previewItems.value.filter(item => item.searchResult && !item.loading).length
-  const failed = previewItems.value.filter(item => !item.searchResult && !item.loading && item.searchError).length
-  const loading = previewItems.value.filter(item => item.loading).length
+  const success = previewItems.value.filter((item) => item.searchResult && !item.loading).length
+  const failed = previewItems.value.filter(
+    (item) => !item.searchResult && !item.loading && item.searchError
+  ).length
+  const loading = previewItems.value.filter((item) => item.loading).length
   return { total, success, failed, loading }
 })
 
 // 监听只选择检索成功的选项变化
-watch(onlySelectSuccess, (value) => {
-  if (value) {
-    // 只选择检索成功的
-    previewItems.value.forEach(item => {
-      item.selected = !!(item.searchResult && !item.loading)
-    })
-  }
-}, { immediate: true })
+watch(
+  onlySelectSuccess,
+  (value) => {
+    if (value) {
+      // 只选择检索成功的
+      previewItems.value.forEach((item) => {
+        item.selected = !!(item.searchResult && !item.loading)
+      })
+    }
+  },
+  { immediate: true }
+)
 
 // 监听搜索结果变化，自动更新选择状态
-watch(() => previewItems.value.map(item => ({ hasResult: !!item.searchResult, loading: item.loading })), () => {
-  if (onlySelectSuccess.value) {
-    previewItems.value.forEach(item => {
-      item.selected = !!(item.searchResult && !item.loading)
-    })
-  }
-}, { deep: true })
+watch(
+  () =>
+    previewItems.value.map((item) => ({ hasResult: !!item.searchResult, loading: item.loading })),
+  () => {
+    if (onlySelectSuccess.value) {
+      previewItems.value.forEach((item) => {
+        item.selected = !!(item.searchResult && !item.loading)
+      })
+    }
+  },
+  { deep: true }
+)
 
 // 选择文件
 async function handleSelectFiles(): Promise<void> {
@@ -138,7 +149,7 @@ async function handleStartSearch(): Promise<void> {
         ElMessage.warning('请输入至少一个书名')
         return
       }
-      
+
       // 创建预览项，立即显示预览界面
       previewItems.value = titles.value.map((title, index) => {
         const searchKeyword = filterTitleForSearch(title)
@@ -153,10 +164,10 @@ async function handleStartSearch(): Promise<void> {
           loading: true // 初始状态为加载中
         })
       })
-      
+
       // 立即显示预览界面
       showPreview.value = true
-      
+
       // 开始批量搜索（异步进行，不阻塞界面）
       performBatchSearch()
     } else {
@@ -168,7 +179,7 @@ async function handleStartSearch(): Promise<void> {
       // 创建预览项，需要先提取电子书封面和书名
       previewItems.value = []
       isSearching.value = true
-      
+
       // 立即显示预览界面
       showPreview.value = true
 
@@ -177,7 +188,7 @@ async function handleStartSearch(): Promise<void> {
           const filePath = selectedFiles.value[i]
           const fileName = getFileName(filePath)
           const ext = getFileExtension(filePath)
-          
+
           // 提取书名（去除扩展名和括号）
           let bookTitle = fileName.replace(/\.[^.]+$/, '')
           const searchKeyword = filterTitleForSearch(bookTitle)
@@ -193,24 +204,27 @@ async function handleStartSearch(): Promise<void> {
             selected: false, // 初始不选择，等待检索结果后根据 onlySelectSuccess 决定
             loading: true
           })
-          
+
           previewItems.value.push(previewItem)
 
           // 尝试提取电子书封面（异步进行，不阻塞）
           if (['.epub', '.mobi', '.azw', '.azw3'].includes(ext)) {
-            window.api.ebook.extractCover(filePath).then(coverResult => {
-              if (coverResult.success && coverResult.data) {
-                previewItem.ebookCover = coverResult.data
-              }
-            }).catch(error => {
-              console.warn('提取电子书封面失败:', error)
-            })
+            window.api.ebook
+              .extractCover(filePath)
+              .then((coverResult) => {
+                if (coverResult.success && coverResult.data) {
+                  previewItem.ebookCover = coverResult.data
+                }
+              })
+              .catch((error) => {
+                console.warn('提取电子书封面失败:', error)
+              })
           }
         }
       } finally {
         isSearching.value = false
       }
-      
+
       // 开始批量搜索（异步进行）
       performBatchSearch()
     }
@@ -224,50 +238,50 @@ async function handleStartSearch(): Promise<void> {
 // 执行批量搜索
 async function performBatchSearch(): Promise<void> {
   isSearching.value = true
-  
+
   try {
-    const keywords = previewItems.value.map(item => item.searchKeyword)
-    
+    const keywords = previewItems.value.map((item) => item.searchKeyword)
+
     // 检查是否有有效的搜索关键词
     if (keywords.length === 0) {
       ElMessage.warning('没有有效的搜索关键词')
       // 标记所有项为失败
-      previewItems.value.forEach(item => {
+      previewItems.value.forEach((item) => {
         item.loading = false
         item.searchError = '没有有效的搜索关键词'
       })
       return
     }
-    
+
     // 初始化所有项为加载状态
-    previewItems.value.forEach(item => {
+    previewItems.value.forEach((item) => {
       item.loading = true
       item.searchResult = undefined
       item.searchError = undefined
     })
-    
+
     // 真正使用批量搜索：一次性搜索所有关键词
     // 批量搜索API内部已经有并发控制（15个并发），这里不需要再控制
     try {
       const results = await batchSearchYoushu(keywords)
-      
+
       // 验证结果数量
       if (!results || results.length === 0) {
         console.error('批量搜索返回空结果')
-        previewItems.value.forEach(item => {
+        previewItems.value.forEach((item) => {
           item.loading = false
           item.searchError = '批量搜索返回空结果'
         })
         return
       }
-      
+
       // 创建一个映射，根据 keyword 快速查找对应的预览项
       // 注意：批量搜索API返回的 keyword 是经过 trim 的原始关键词
       // 而 item.searchKeyword 是经过 filterTitleForSearch 处理后的关键词
       // 所以我们需要同时匹配原始关键词和处理后的关键词
       const itemMap = new Map<string, PreviewItem>()
       const originalKeywordMap = new Map<string, PreviewItem>()
-      
+
       previewItems.value.forEach((item, index) => {
         // 使用处理后的关键词作为主键
         itemMap.set(item.searchKeyword, item)
@@ -277,35 +291,35 @@ async function performBatchSearch(): Promise<void> {
           originalKeywordMap.set(originalKeyword, item)
         }
       })
-      
+
       // 根据结果更新对应的预览项（使用 keyword 匹配）
       results.forEach((result) => {
         if (!result || !result.keyword) {
           console.warn('批量搜索结果缺少 keyword 字段:', result)
           return
         }
-        
+
         // 先尝试用 result.keyword 匹配（这是 trim 后的原始关键词）
         let item = originalKeywordMap.get(result.keyword.trim())
-        
+
         // 如果没找到，尝试用处理后的关键词匹配
         if (!item) {
           item = itemMap.get(result.keyword.trim())
         }
-        
+
         // 如果还是没找到，尝试在所有预览项中查找匹配的 searchKeyword
         if (!item) {
-          item = previewItems.value.find(i => 
-            i.searchKeyword === result.keyword.trim() || 
-            i.originalTitle === result.keyword.trim()
+          item = previewItems.value.find(
+            (i) =>
+              i.searchKeyword === result.keyword.trim() || i.originalTitle === result.keyword.trim()
           )
         }
-        
+
         if (!item) {
           console.warn(`未找到关键词 "${result.keyword}" 对应的预览项`)
           return
         }
-        
+
         if (result.success && result.data) {
           item.searchResult = result.data
           item.searchError = undefined
@@ -315,9 +329,9 @@ async function performBatchSearch(): Promise<void> {
         }
         item.loading = false
       })
-      
+
       // 确保所有预览项都被处理（处理可能缺失的结果）
-      previewItems.value.forEach(item => {
+      previewItems.value.forEach((item) => {
         if (item.loading) {
           // 如果还在加载状态，说明没有对应的结果
           item.loading = false
@@ -330,7 +344,7 @@ async function performBatchSearch(): Promise<void> {
       console.error('批量搜索错误:', error)
       ElMessage.error(error?.message || '批量搜索失败，请检查网络连接')
       // 如果批量搜索失败，标记所有项为失败
-      previewItems.value.forEach(item => {
+      previewItems.value.forEach((item) => {
         item.loading = false
         if (!item.searchResult) {
           item.searchError = error?.message || '搜索失败'
@@ -341,7 +355,7 @@ async function performBatchSearch(): Promise<void> {
     console.error('批量搜索错误:', error)
     ElMessage.error(error?.message || '批量搜索失败')
     // 标记所有项为失败
-    previewItems.value.forEach(item => {
+    previewItems.value.forEach((item) => {
       item.loading = false
       if (!item.searchResult) {
         item.searchError = '搜索失败'
@@ -386,11 +400,11 @@ function openReSearchDialog(item: PreviewItem): void {
 // 执行重新搜索
 async function performReSearch(): Promise<void> {
   if (!reSearchDialog.value.searchKeyword.trim() || reSearchDialog.value.loading) return
-  
+
   reSearchDialog.value.loading = true
   reSearchDialog.value.error = ''
   reSearchDialog.value.results = []
-  
+
   try {
     const data = await searchYoushu(reSearchDialog.value.searchKeyword.trim())
     reSearchDialog.value.results = data
@@ -414,7 +428,7 @@ function closeReSearchDialog(): void {
 // 选择搜索结果
 function handleSelectSearchResult(result: SearchResult): void {
   if (!reSearchDialog.value.item) return
-  
+
   reSearchDialog.value.item.searchResult = result
   reSearchDialog.value.item.searchError = undefined
   closeReSearchDialog()
@@ -424,7 +438,7 @@ function handleSelectSearchResult(result: SearchResult): void {
 // 全选/取消全选
 function toggleSelectAll(): void {
   const shouldSelect = !isAllSelected.value
-  previewItems.value.forEach(item => {
+  previewItems.value.forEach((item) => {
     item.selected = shouldSelect
   })
 }
@@ -436,7 +450,7 @@ function toggleItemSelection(item: PreviewItem): void {
 
 // 批量导入
 async function handleBatchImport(): Promise<void> {
-  const selectedItems = previewItems.value.filter(item => item.selected)
+  const selectedItems = previewItems.value.filter((item) => item.selected)
   if (selectedItems.length === 0) {
     ElMessage.warning('请选择要导入的书籍')
     return
@@ -444,15 +458,11 @@ async function handleBatchImport(): Promise<void> {
 
   // 确认导入
   try {
-    await ElMessageBox.confirm(
-      `确定要导入 ${selectedItems.length} 本书籍吗？`,
-      '确认导入',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'info'
-      }
-    )
+    await ElMessageBox.confirm(`确定要导入 ${selectedItems.length} 本书籍吗？`, '确认导入', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'info'
+    })
   } catch {
     return
   }
@@ -460,11 +470,25 @@ async function handleBatchImport(): Promise<void> {
   isImporting.value = true
   let successCount = 0
   let failCount = 0
+  let skipCount = 0
 
   try {
+    // 获取所有现有书籍，用于检查重复
+    const existingBooks = await bookAPI.getAllBooks()
+    const existingBooksMap = new Map<string, Book>()
+    existingBooks.forEach((book) => {
+      const normalizedTitle = normalizeTitleForComparison(book.title)
+      if (normalizedTitle) {
+        // 如果已存在相同规范化书名的书籍，保留第一个（或更新为最新的）
+        if (!existingBooksMap.has(normalizedTitle)) {
+          existingBooksMap.set(normalizedTitle, book)
+        }
+      }
+    })
+
     // 并行获取所有书籍的详情页信息（提高速度）
     const detailPromises = selectedItems
-      .filter(item => item.searchResult?.sourceUrl)
+      .filter((item) => item.searchResult?.sourceUrl)
       .map(async (item) => {
         try {
           const detail = await fetchYoushuDetail(item.searchResult!.sourceUrl!)
@@ -474,7 +498,7 @@ async function handleBatchImport(): Promise<void> {
           return { item, detail: null }
         }
       })
-    
+
     // 等待所有详情页获取完成
     const detailResults = await Promise.all(detailPromises)
     const detailMap = new Map<PreviewItem, any>()
@@ -486,7 +510,7 @@ async function handleBatchImport(): Promise<void> {
 
     // 并行下载所有封面（提高速度）
     const coverPromises = selectedItems
-      .filter(item => item.searchResult && !item.ebookCover && item.searchResult.cover)
+      .filter((item) => item.searchResult && !item.ebookCover && item.searchResult.cover)
       .map(async (item) => {
         try {
           const coverUrl = await downloadCover(item.searchResult!.cover!, item.searchResult!.title)
@@ -496,7 +520,7 @@ async function handleBatchImport(): Promise<void> {
           return { item, coverUrl: item.searchResult!.cover }
         }
       })
-    
+
     // 等待所有封面下载完成
     const coverResults = await Promise.all(coverPromises)
     const coverMap = new Map<PreviewItem, string>()
@@ -504,75 +528,197 @@ async function handleBatchImport(): Promise<void> {
       coverMap.set(item, coverUrl)
     })
 
-    // 创建书籍（串行，因为需要确保数据库操作的顺序）
+    // 创建书籍（串行，因为需要确保数据库操作的顺序，并且需要用户交互）
     for (const item of selectedItems) {
       try {
-        // 准备书籍数据
-        const searchResult = item.searchResult
-        
-        let bookInput: BookInput
-        
-        if (!searchResult) {
-          // 网络检索失败，只使用书名创建书籍
-          bookInput = {
-            title: item.originalTitle, // 使用原始书名
-            readingStatus: 'unread'
+        // 检查是否存在同名书籍（使用规范化书名）
+        const normalizedTitle = normalizeTitleForComparison(item.originalTitle)
+        const existingBook = normalizedTitle ? existingBooksMap.get(normalizedTitle) : null
+
+        if (existingBook) {
+          // 存在同名书籍，让用户选择跳过或覆盖
+          try {
+            const result = await ElMessageBox.confirm(
+              `书籍 "${item.originalTitle}" 与已存在的书籍 "${existingBook.title}" 可能是同一本书（已过滤括号内容）。\n\n请选择操作：`,
+              '发现重复书籍',
+              {
+                confirmButtonText: '覆盖',
+                cancelButtonText: '跳过',
+                distinguishCancelAndClose: true,
+                type: 'warning'
+              }
+            )
+
+            // 用户选择覆盖
+            if (result === 'confirm') {
+              // 准备书籍数据
+              const searchResult = item.searchResult
+
+              let bookInput: BookInput
+
+              if (!searchResult) {
+                // 网络检索失败，只使用书名创建书籍
+                bookInput = {
+                  title: item.originalTitle, // 使用原始书名
+                  readingStatus: 'unread'
+                }
+              } else {
+                // 使用已下载的封面或电子书封面
+                let coverUrl = item.ebookCover || coverMap.get(item) || undefined
+                if (!coverUrl && searchResult.cover) {
+                  coverUrl = searchResult.cover
+                }
+
+                // 获取详细信息（包括完整的简介）
+                let platform = searchResult.platform
+                let category = searchResult.category
+                let description = searchResult.description // 默认使用列表页的简介
+
+                // 使用已获取的详情页信息
+                const detail = detailMap.get(item)
+                if (detail) {
+                  platform = detail.platform || platform
+                  category = category || detail.category
+                  // 优先使用详情页的完整简介（从"内容介绍"标签页提取）
+                  // 只要详情页有简介，就使用详情页的简介（即使列表页也有简介）
+                  if (detail.description && detail.description.trim().length > 10) {
+                    description = detail.description
+                    console.log(
+                      `书籍 "${item.originalTitle}" 使用详情页简介，长度: ${description.length}`
+                    )
+                  } else {
+                    console.warn(
+                      `书籍 "${item.originalTitle}" 详情页没有提取到简介，使用列表页简介`
+                    )
+                  }
+                }
+
+                // 更新书籍（有完整信息）
+                bookInput = {
+                  title: item.originalTitle, // 使用原始书名
+                  author: searchResult.author,
+                  coverUrl,
+                  platform,
+                  category,
+                  description,
+                  wordCountDisplay: searchResult.wordCount
+                    ? Math.round(searchResult.wordCount / 1000) * 1000
+                    : undefined,
+                  wordCountSearch: searchResult.wordCount,
+                  wordCountSource: 'search',
+                  sourceUrl: searchResult.sourceUrl,
+                  readingStatus: existingBook.readingStatus || 'unread' // 保留原有阅读状态
+                }
+              }
+
+              // 更新现有书籍
+              try {
+                const updatedBook = await bookStore.updateBook(existingBook.id, bookInput)
+
+                // 如果是文件上传方式，上传文件
+                if (item.filePath && updatedBook) {
+                  try {
+                    await window.api.document.upload(item.filePath, updatedBook.id)
+                  } catch (error) {
+                    console.warn('文件上传失败:', error)
+                  }
+                }
+                successCount++
+              } catch (error) {
+                console.error(`更新书籍失败: ${item.originalTitle}`, error)
+                failCount++
+              }
+            } else {
+              // 用户选择跳过
+              skipCount++
+            }
+          } catch {
+            // 用户取消对话框，跳过此书籍
+            skipCount++
           }
         } else {
-          // 使用已下载的封面或电子书封面
-          let coverUrl = item.ebookCover || coverMap.get(item) || undefined
-          if (!coverUrl && searchResult.cover) {
-            coverUrl = searchResult.cover
-          }
+          // 不存在同名书籍，正常创建
+          // 准备书籍数据
+          const searchResult = item.searchResult
 
-          // 获取详细信息（包括完整的简介）
-          let platform = searchResult.platform
-          let category = searchResult.category
-          let description = searchResult.description // 默认使用列表页的简介
-          
-          // 使用已获取的详情页信息
-          const detail = detailMap.get(item)
-          if (detail) {
-            platform = detail.platform || platform
-            category = category || detail.category
-            // 优先使用详情页的完整简介（从"内容介绍"标签页提取）
-            // 只要详情页有简介，就使用详情页的简介（即使列表页也有简介）
-            if (detail.description && detail.description.trim().length > 10) {
-              description = detail.description
-              console.log(`书籍 "${item.originalTitle}" 使用详情页简介，长度: ${description.length}`)
-            } else {
-              console.warn(`书籍 "${item.originalTitle}" 详情页没有提取到简介，使用列表页简介`)
+          let bookInput: BookInput
+
+          if (!searchResult) {
+            // 网络检索失败，只使用书名创建书籍
+            bookInput = {
+              title: item.originalTitle, // 使用原始书名
+              readingStatus: 'unread'
+            }
+          } else {
+            // 使用已下载的封面或电子书封面
+            let coverUrl = item.ebookCover || coverMap.get(item) || undefined
+            if (!coverUrl && searchResult.cover) {
+              coverUrl = searchResult.cover
+            }
+
+            // 获取详细信息（包括完整的简介）
+            let platform = searchResult.platform
+            let category = searchResult.category
+            let description = searchResult.description // 默认使用列表页的简介
+
+            // 使用已获取的详情页信息
+            const detail = detailMap.get(item)
+            if (detail) {
+              platform = detail.platform || platform
+              category = category || detail.category
+              // 优先使用详情页的完整简介（从"内容介绍"标签页提取）
+              // 只要详情页有简介，就使用详情页的简介（即使列表页也有简介）
+              if (detail.description && detail.description.trim().length > 10) {
+                description = detail.description
+                console.log(
+                  `书籍 "${item.originalTitle}" 使用详情页简介，长度: ${description.length}`
+                )
+              } else {
+                console.warn(`书籍 "${item.originalTitle}" 详情页没有提取到简介，使用列表页简介`)
+              }
+            }
+
+            // 创建书籍（有完整信息）
+            bookInput = {
+              title: item.originalTitle, // 使用原始书名
+              author: searchResult.author,
+              coverUrl,
+              platform,
+              category,
+              description,
+              wordCountDisplay: searchResult.wordCount
+                ? Math.round(searchResult.wordCount / 1000) * 1000
+                : undefined,
+              wordCountSearch: searchResult.wordCount,
+              wordCountSource: 'search',
+              sourceUrl: searchResult.sourceUrl,
+              readingStatus: 'unread'
             }
           }
 
-          // 创建书籍（有完整信息）
-          bookInput = {
-            title: item.originalTitle, // 使用原始书名
-            author: searchResult.author,
-            coverUrl,
-            platform,
-            category,
-            description,
-            wordCountDisplay: searchResult.wordCount ? Math.round(searchResult.wordCount / 1000) * 1000 : undefined,
-            wordCountSearch: searchResult.wordCount,
-            wordCountSource: 'search',
-            sourceUrl: searchResult.sourceUrl,
-            readingStatus: 'unread'
-          }
-        }
-
-        const createResult = await bookStore.createBook(bookInput)
-        
-        // 如果是文件上传方式，上传文件
-        if (item.filePath && createResult.success && createResult.data) {
           try {
-            await window.api.document.upload(item.filePath, createResult.data.id)
+            const createdBook = await bookStore.createBook(bookInput)
+
+            // 如果是文件上传方式，上传文件
+            if (item.filePath && createdBook) {
+              try {
+                await window.api.document.upload(item.filePath, createdBook.id)
+              } catch (error) {
+                console.warn('文件上传失败:', error)
+              }
+            }
+
+            successCount++
+            // 更新已存在书籍映射，避免后续重复检查
+            const normalizedTitle = normalizeTitleForComparison(item.originalTitle)
+            if (normalizedTitle && createdBook) {
+              existingBooksMap.set(normalizedTitle, createdBook)
+            }
           } catch (error) {
-            console.warn('文件上传失败:', error)
+            console.error(`创建书籍失败: ${item.originalTitle}`, error)
+            failCount++
           }
         }
-
-        successCount++
       } catch (error: any) {
         console.error(`导入书籍失败: ${item.originalTitle}`, error)
         failCount++
@@ -580,8 +726,18 @@ async function handleBatchImport(): Promise<void> {
     }
 
     // 显示结果
-    if (successCount > 0) {
-      ElMessage.success(`成功导入 ${successCount} 本书籍${failCount > 0 ? `，失败 ${failCount} 本` : ''}`)
+    if (successCount > 0 || skipCount > 0) {
+      const messages: string[] = []
+      if (successCount > 0) {
+        messages.push(`成功导入 ${successCount} 本`)
+      }
+      if (skipCount > 0) {
+        messages.push(`跳过 ${skipCount} 本`)
+      }
+      if (failCount > 0) {
+        messages.push(`失败 ${failCount} 本`)
+      }
+      ElMessage.success(messages.join('，'))
       // 刷新书籍列表
       await bookStore.fetchBooks()
       // 返回首页
@@ -675,28 +831,14 @@ function handleClear(): void {
     <div v-if="importMode === 'files' && !showPreview" class="import-section">
       <div class="file-section">
         <div class="file-upload-area">
-          <button type="button" class="upload-btn" @click="handleSelectFiles">
-            选择文件
-          </button>
-          <p class="upload-hint">
-            支持 TXT、EPUB、PDF、MOBI、AZW、AZW3、DOC、DOCX 格式
-          </p>
+          <button type="button" class="upload-btn" @click="handleSelectFiles">选择文件</button>
+          <p class="upload-hint">支持 TXT、EPUB、PDF、MOBI、AZW、AZW3、DOC、DOCX 格式</p>
         </div>
 
         <div v-if="selectedFiles.length > 0" class="file-list">
-          <div
-            v-for="(file, index) in selectedFiles"
-            :key="index"
-            class="file-item"
-          >
+          <div v-for="(file, index) in selectedFiles" :key="index" class="file-item">
             <span class="file-name">{{ getFileName(file) }}</span>
-            <button
-              type="button"
-              class="remove-btn"
-              @click="removeFile(index)"
-            >
-              移除
-            </button>
+            <button type="button" class="remove-btn" @click="removeFile(index)">移除</button>
           </div>
         </div>
 
@@ -719,16 +861,18 @@ function handleClear(): void {
       <div class="preview-header">
         <h3>预览导入列表</h3>
         <div class="preview-actions">
-          <button type="button" class="ghost-btn" @click="handleClear">
-            重新开始
-          </button>
+          <button type="button" class="ghost-btn" @click="handleClear">重新开始</button>
           <button
             type="button"
             class="primary-btn"
-            :disabled="isImporting || previewItems.filter(i => i.selected).length === 0"
+            :disabled="isImporting || previewItems.filter((i) => i.selected).length === 0"
             @click="handleBatchImport"
           >
-            {{ isImporting ? '导入中...' : `确认导入 (${previewItems.filter(i => i.selected).length})` }}
+            {{
+              isImporting
+                ? '导入中...'
+                : `确认导入 (${previewItems.filter((i) => i.selected).length})`
+            }}
           </button>
         </div>
       </div>
@@ -745,21 +889,16 @@ function handleClear(): void {
             <span>全选</span>
           </label>
           <label class="checkbox-label">
-            <input
-              type="checkbox"
-              v-model="onlySelectSuccess"
-            />
+            <input type="checkbox" v-model="onlySelectSuccess" />
             <span>只选择检索成功</span>
           </label>
         </div>
         <span class="stats">
           共 {{ searchStats.total }} 项，
-          <span v-if="searchStats.loading > 0">
-            检索中 {{ searchStats.loading }}，
-          </span>
-          <span class="success-count">成功 {{ searchStats.success }}</span>，
-          <span class="failed-count">失败 {{ searchStats.failed }}</span>，
-          已选择 {{ previewItems.filter(i => i.selected).length }} 项
+          <span v-if="searchStats.loading > 0"> 检索中 {{ searchStats.loading }}， </span>
+          <span class="success-count">成功 {{ searchStats.success }}</span
+          >， <span class="failed-count">失败 {{ searchStats.failed }}</span
+          >， 已选择 {{ previewItems.filter((i) => i.selected).length }} 项
         </span>
       </div>
 
@@ -771,11 +910,7 @@ function handleClear(): void {
           :class="{ selected: item.selected }"
         >
           <div class="item-checkbox">
-            <input
-              type="checkbox"
-              :checked="item.selected"
-              @change="toggleItemSelection(item)"
-            />
+            <input type="checkbox" :checked="item.selected" @change="toggleItemSelection(item)" />
           </div>
 
           <div class="item-cover">
@@ -831,7 +966,7 @@ function handleClear(): void {
               {{ item.loading ? '搜索中...' : '重新搜索' }}
             </button>
           </div>
-          
+
           <!-- 进度指示器 -->
           <div v-if="item.loading" class="item-progress">
             <div class="progress-bar">
@@ -848,7 +983,7 @@ function handleClear(): void {
               <h4>重新搜索 - {{ reSearchDialog.item?.originalTitle }}</h4>
               <button type="button" class="close-btn" @click="closeReSearchDialog">×</button>
             </div>
-            
+
             <div class="dialog-search-section">
               <div class="search-input-wrapper">
                 <input
@@ -878,7 +1013,10 @@ function handleClear(): void {
               <p>{{ reSearchDialog.error }}</p>
             </div>
 
-            <div v-else-if="reSearchDialog.results.length === 0 && reSearchDialog.searchKeyword" class="dialog-empty">
+            <div
+              v-else-if="reSearchDialog.results.length === 0 && reSearchDialog.searchKeyword"
+              class="dialog-empty"
+            >
               <p>未找到搜索结果，请尝试更换关键词</p>
             </div>
 
@@ -916,9 +1054,7 @@ function handleClear(): void {
             </div>
 
             <div class="dialog-footer">
-              <button type="button" class="ghost-btn" @click="closeReSearchDialog">
-                取消
-              </button>
+              <button type="button" class="ghost-btn" @click="closeReSearchDialog">取消</button>
             </div>
           </div>
         </div>
@@ -1329,7 +1465,8 @@ function handleClear(): void {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -1748,4 +1885,3 @@ function handleClear(): void {
   }
 }
 </style>
-
