@@ -280,13 +280,6 @@ async function handleRemoveFromBookshelf(): Promise<void> {
           >
             {{ selectionMode ? '取消选择' : '批量管理' }}
           </button>
-          <button
-            type="button"
-            class="secondary-btn"
-            @click="openBookshelfDialog(null)"
-          >
-            + 创建书架
-          </button>
         </div>
         <button class="primary-btn" type="button" @click="goToAdd">
           + 添加书籍

@@ -106,11 +106,28 @@ export const useBookStore = defineStore('book', () => {
           case 'title':
             aValue = a.title.toLowerCase()
             bValue = b.title.toLowerCase()
+            // 书名相同时也按书名排序（虽然不太可能，但为了统一性）
+            aSecondary = a.title.toLowerCase()
+            bSecondary = b.title.toLowerCase()
             break
           case 'author':
-            // 按作者排序，空作者统一处理为"未知作者"
-            aValue = (a.author || '未知作者').toLowerCase()
-            bValue = (b.author || '未知作者').toLowerCase()
+            // 按作者首字母排序，空作者统一处理为"未知作者"
+            const getAuthorFirstChar = (author: string | null | undefined): string => {
+              const authorStr = (author || '未知作者').trim()
+              if (authorStr.length === 0) return 'z' // 空字符串排最后
+              // 获取首字符，如果是中文则返回拼音首字母，否则返回首字母
+              const firstChar = authorStr[0].toLowerCase()
+              // 如果是中文字符（Unicode范围），需要特殊处理
+              // 这里简化处理：中文字符按Unicode排序，英文字符按字母排序
+              if (/[\u4e00-\u9fa5]/.test(firstChar)) {
+                // 中文字符，可以按Unicode排序，或者可以集成拼音库
+                // 这里先按Unicode排序，后续可以优化为拼音首字母
+                return firstChar
+              }
+              return firstChar
+            }
+            aValue = getAuthorFirstChar(a.author)
+            bValue = getAuthorFirstChar(b.author)
             // 相同作者时按书名排序
             aSecondary = a.title.toLowerCase()
             bSecondary = b.title.toLowerCase()
@@ -127,10 +144,10 @@ export const useBookStore = defineStore('book', () => {
           return sortOrder.value === 'asc' ? 1 : -1
         }
         
-        // 主排序值相同时，使用次要排序（如果存在）
+        // 主排序值相同时，使用次要排序（按书名A-Z，始终升序）
         if (aSecondary !== undefined && bSecondary !== undefined) {
-          if (aSecondary < bSecondary) return sortOrder.value === 'asc' ? -1 : 1
-          if (aSecondary > bSecondary) return sortOrder.value === 'asc' ? 1 : -1
+          if (aSecondary < bSecondary) return -1
+          if (aSecondary > bSecondary) return 1
         }
         
         return 0

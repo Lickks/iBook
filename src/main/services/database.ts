@@ -499,21 +499,32 @@ class DatabaseService {
     // 构建ORDER BY子句
     let orderBy = 'ORDER BY created_at DESC'
     if (sort?.sortBy) {
+      const sortOrder = sort.sortOrder || (sort.sortBy === 'title' || sort.sortBy === 'author' ? 'asc' : 'desc')
       switch (sort.sortBy) {
         case 'wordCount':
-          orderBy = `ORDER BY word_count_display ${sort.sortOrder || 'desc'}`
+          // 字数排序，相同时按书名A-Z排序
+          orderBy = `ORDER BY word_count_display ${sortOrder}, title ASC`
           break
         case 'createdAt':
-          orderBy = `ORDER BY created_at ${sort.sortOrder || 'desc'}`
+          // 创建时间排序，相同时按书名A-Z排序
+          orderBy = `ORDER BY created_at ${sortOrder}, title ASC`
           break
         case 'rating':
-          orderBy = `ORDER BY personal_rating ${sort.sortOrder || 'desc'}`
+          // 评分排序，相同时按书名A-Z排序
+          orderBy = `ORDER BY personal_rating ${sortOrder}, title ASC`
           break
         case 'title':
-          orderBy = `ORDER BY title ${sort.sortOrder || 'asc'}`
+          // 书名排序，相同时也按书名A-Z排序（虽然不太可能，但为了统一性）
+          orderBy = `ORDER BY title ${sortOrder}, title ASC`
           break
         case 'author':
-          orderBy = `ORDER BY author ${sort.sortOrder || 'asc'}, title ${sort.sortOrder || 'asc'}`
+          // 按作者首字母排序，相同时按书名A-Z排序
+          // SQLite使用SUBSTR函数提取首字符，处理NULL和空字符串
+          // CASE WHEN 确保空字符串和NULL都返回'z'（排最后）
+          orderBy = `ORDER BY CASE 
+            WHEN author IS NULL OR TRIM(author) = '' THEN 'z'
+            ELSE SUBSTR(LOWER(TRIM(author)), 1, 1)
+          END ${sortOrder}, title ASC`
           break
         default:
           orderBy = 'ORDER BY created_at DESC'

@@ -35,6 +35,16 @@ const editingBookshelf = ref(null)
 const customBookshelves = computed(() => bookshelfStore.customBookshelves)
 const currentBookshelfId = computed(() => bookshelfStore.currentBookshelfId)
 
+// 判断导航项是否应该高亮
+const isNavItemActive = (itemName: string): boolean => {
+  if (itemName === 'Home') {
+    // 书籍列表按钮只有在默认书架时才高亮
+    const defaultBookshelfId = bookshelfStore.defaultBookshelf?.id || null
+    return activeRoute.value === 'Home' && currentBookshelfId.value === defaultBookshelfId
+  }
+  return activeRoute.value === itemName
+}
+
 // 监听路由变化，更新当前书架
 watch(() => route.params.bookshelfId, (bookshelfId) => {
   if (bookshelfId) {
@@ -46,18 +56,15 @@ watch(() => route.params.bookshelfId, (bookshelfId) => {
   }
 }, { immediate: true })
 
-// 监听路由名称变化，当进入首页时切换到默认书架
-watch(() => route.name, (routeName) => {
-  if (routeName === 'Home') {
-    // 切换到默认书架（全部书籍）
-    const defaultBookshelfId = bookshelfStore.defaultBookshelf?.id || null
-    if (bookshelfStore.currentBookshelfId !== defaultBookshelfId) {
-      bookshelfStore.setCurrentBookshelf(defaultBookshelfId)
-      bookStore.setCurrentBookshelf(defaultBookshelfId)
-      bookStore.fetchBooks()
-    }
+// 处理书籍列表按钮点击，切换到默认书架
+function handleHomeClick(): void {
+  const defaultBookshelfId = bookshelfStore.defaultBookshelf?.id || null
+  if (bookshelfStore.currentBookshelfId !== defaultBookshelfId) {
+    bookshelfStore.setCurrentBookshelf(defaultBookshelfId)
+    bookStore.setCurrentBookshelf(defaultBookshelfId)
+    bookStore.fetchBooks()
   }
-}, { immediate: true })
+}
 
 async function ensureBooksLoaded(): Promise<void> {
   if (!bookStore.books.length) {
@@ -122,7 +129,8 @@ onMounted(() => {
           :key="item.name"
           :to="item.path"
           class="nav-link"
-          :class="{ active: activeRoute === item.name }"
+          :class="{ active: isNavItemActive(item.name) }"
+          @click="item.name === 'Home' ? handleHomeClick() : undefined"
         >
           <span class="icon">{{ item.icon }}</span>
           <span class="label">{{ item.label }}</span>
@@ -132,7 +140,6 @@ onMounted(() => {
         <div class="bookshelf-section">
           <button
             class="nav-link bookshelf-header"
-            :class="{ active: bookshelfExpanded }"
             @click="bookshelfExpanded = !bookshelfExpanded"
           >
             <span class="icon">📖</span>
@@ -145,7 +152,7 @@ onMounted(() => {
                 v-for="bookshelf in customBookshelves"
                 :key="bookshelf.id"
                 class="bookshelf-item"
-                :class="{ active: currentBookshelfId === bookshelf.id }"
+                :class="{ active: activeRoute === 'Home' && currentBookshelfId === bookshelf.id }"
                 @click="handleBookshelfClick(bookshelf.id)"
               >
                 <span class="bookshelf-icon">📚</span>
@@ -222,15 +229,36 @@ onMounted(() => {
 
 .sidebar {
   width: 240px;
-  padding: 32px 24px;
+  height: 100vh;
+  padding: 0;
   background: var(--color-sidebar);
   border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  position: sticky;
+  top: 0;
+  overflow: hidden;
   transition:
     width 0.2s ease,
     transform 0.2s ease;
+}
+
+.sidebar > .brand {
+  padding: 32px 24px 20px 24px;
+  flex-shrink: 0;
+}
+
+.sidebar > .nav {
+  padding: 0 24px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar > .sidebar-footer {
+  padding: 20px 24px 32px 24px;
+  flex-shrink: 0;
 }
 
 .sidebar.collapsed {
@@ -263,6 +291,16 @@ onMounted(() => {
   transition: background 0.2s ease;
   color: var(--color-text-secondary);
   font-weight: 500;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.nav-link:hover:not(.active) {
+  background: var(--color-bg-muted);
+  color: var(--color-text-primary);
 }
 
 .nav-link .icon {
