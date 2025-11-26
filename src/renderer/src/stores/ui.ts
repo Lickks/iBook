@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
-type Theme = 'light' | 'dark' | 'auto'
+type Theme = 'light' | 'dark'
 type ViewMode = 'grid' | 'list'
 
 /**
@@ -9,7 +9,7 @@ type ViewMode = 'grid' | 'list'
  */
 export const useUIStore = defineStore('ui', () => {
   // State
-  const theme = ref<Theme>('auto')
+  const theme = ref<Theme>('light')
   const viewMode = ref<ViewMode>('grid')
   const sidebarCollapsed = ref(false)
 
@@ -19,8 +19,13 @@ export const useUIStore = defineStore('ui', () => {
     const savedViewMode = localStorage.getItem('viewMode') as ViewMode | null
     const savedSidebarCollapsed = localStorage.getItem('sidebarCollapsed')
 
-    if (savedTheme && ['light', 'dark', 'auto'].includes(savedTheme)) {
+    if (savedTheme && ['light', 'dark'].includes(savedTheme)) {
       theme.value = savedTheme
+    } else if (savedTheme === 'auto') {
+      // 迁移旧的 'auto' 主题：根据系统主题选择 light 或 dark
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      theme.value = systemPrefersDark ? 'dark' : 'light'
+      localStorage.setItem('theme', theme.value)
     }
     if (savedViewMode && ['grid', 'list'].includes(savedViewMode)) {
       viewMode.value = savedViewMode
@@ -36,9 +41,8 @@ export const useUIStore = defineStore('ui', () => {
   // 应用主题
   function applyTheme(): void {
     const root = document.documentElement
-    const effectiveTheme = getEffectiveTheme()
 
-    if (effectiveTheme === 'dark') {
+    if (theme.value === 'dark') {
       root.classList.add('dark')
       root.classList.remove('light')
     } else {
@@ -47,23 +51,12 @@ export const useUIStore = defineStore('ui', () => {
     }
   }
 
-  // 获取有效主题（如果是 auto，则根据系统主题判断）
-  function getEffectiveTheme(): 'light' | 'dark' {
-    if (theme.value === 'auto') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-    }
-    return theme.value
-  }
-
   // Actions
   /**
    * 切换主题
    */
   function toggleTheme(): void {
-    const themes: Theme[] = ['light', 'dark', 'auto']
-    const currentIndex = themes.indexOf(theme.value)
-    const nextIndex = (currentIndex + 1) % themes.length
-    setTheme(themes[nextIndex])
+    setTheme(theme.value === 'light' ? 'dark' : 'light')
   }
 
   /**
@@ -99,15 +92,6 @@ export const useUIStore = defineStore('ui', () => {
     localStorage.setItem('sidebarCollapsed', String(collapsed))
   }
 
-  // 监听系统主题变化（当 theme 为 auto 时）
-  if (typeof window !== 'undefined') {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    mediaQuery.addEventListener('change', () => {
-      if (theme.value === 'auto') {
-        applyTheme()
-      }
-    })
-  }
 
   // 初始化时加载设置
   if (typeof window !== 'undefined') {
@@ -119,8 +103,6 @@ export const useUIStore = defineStore('ui', () => {
     theme,
     viewMode,
     sidebarCollapsed,
-    // Getters (computed)
-    getEffectiveTheme,
     // Actions
     toggleTheme,
     setTheme,

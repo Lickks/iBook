@@ -24,11 +24,10 @@ const uiStore = useUIStore()
 
 const themeOptions = [
   { value: 'light', label: '明亮', icon: '☀️' },
-  { value: 'dark', label: '暗黑', icon: '🌙' },
-  { value: 'auto', label: '跟随系统', icon: '🔄' }
+  { value: 'dark', label: '暗黑', icon: '🌙' }
 ]
 
-function handleThemeChange(theme: 'light' | 'dark' | 'auto'): void {
+function handleThemeChange(theme: 'light' | 'dark'): void {
   uiStore.setTheme(theme)
 }
 </script>

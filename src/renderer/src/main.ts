@@ -14,12 +14,6 @@ app.use(pinia)
 
 // 初始化主题
 const uiStore = useUIStore()
-const root = document.documentElement
-const effectiveTheme = uiStore.getEffectiveTheme()
-if (effectiveTheme === 'dark') {
-  root.classList.add('dark')
-} else {
-  root.classList.remove('dark')
-}
+// 主题会在 loadSettings() 中自动应用，这里不需要手动设置
 
 app.mount('#app')

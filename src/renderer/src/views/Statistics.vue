@@ -18,11 +18,11 @@
             >
               <option value="">全部书籍</option>
               <option
-                v-for="bookshelf in bookshelves"
+                v-for="bookshelf in customBookshelves"
                 :key="bookshelf.id"
                 :value="bookshelf.id"
               >
-                {{ bookshelf.name }}{{ bookshelf.isDefault ? ' (全局)' : '' }}
+                {{ bookshelf.name }}
               </option>
             </select>
           </div>
@@ -93,23 +93,31 @@
 
       <!-- 图表区域 -->
       <div class="charts-section">
-        <!-- 第一行图表 -->
+        <!-- 阅读状态分布 -->
         <div class="charts-row">
-          <div class="chart-card">
+          <div class="chart-card chart-full">
             <h3>阅读状态分布</h3>
             <div ref="statusChartRef" class="chart"></div>
           </div>
-          <div class="chart-card">
+        </div>
+
+        <!-- 类型分布 -->
+        <div class="charts-row">
+          <div class="chart-card chart-full">
             <h3>类型分布</h3>
             <div ref="categoryChartRef" class="chart"></div>
           </div>
-          <div class="chart-card">
+        </div>
+
+        <!-- 平台分布 -->
+        <div class="charts-row">
+          <div class="chart-card chart-full">
             <h3>平台分布</h3>
             <div ref="platformChartRef" class="chart"></div>
           </div>
         </div>
 
-        <!-- 第二行图表 -->
+        <!-- 字数分布 -->
         <div class="charts-row">
           <div class="chart-card chart-full">
             <h3>字数分布</h3>
@@ -130,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUIStore } from '../stores/ui'
 import { useBookshelfStore } from '../stores/bookshelf'
@@ -142,6 +150,11 @@ const bookshelfStore = useBookshelfStore()
 // 书架选择状态
 const selectedBookshelfId = ref<number | null>(null)
 const bookshelves = ref(bookshelfStore.bookshelves)
+
+// 过滤掉默认书架，只保留自定义书架
+const customBookshelves = computed(() => {
+  return bookshelves.value.filter(bs => !bs.isDefault)
+})
 
 interface Book {
   id: string
@@ -204,7 +217,7 @@ const formatNumber = (num: number) => {
   return num.toString()
 }
 
-// 创建阅读状态饼图
+// 创建阅读状态横向条形图
 const createStatusChart = () => {
   if (!statusChartRef.value || !data.value) return
 
@@ -216,47 +229,85 @@ const createStatusChart = () => {
 
       statusChartInstance = echarts.init(statusChartRef.value)
 
-      // 使用后端已计算的状态统计数据
-      const statusData = data.value!.statusStats.map(item => ({
-        name: item.name,
-        value: item.value
-      }))
+      // 使用后端已计算的状态统计数据，按值降序排序
+      const statusData = [...data.value!.statusStats]
+        .map(item => ({
+          name: item.name,
+          value: item.value
+        }))
+        .sort((a, b) => {
+          // 确保降序排序：数值大的在前
+          return b.value - a.value
+        })
+
+      const categories = statusData.map(item => item.name)
+      const values = statusData.map(item => item.value)
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
+
+      // 根据数据项数量动态计算图表高度（每项约35px，最小300px，最大500px）
+      const itemCount = categories.length
+      const calculatedHeight = Math.max(300, Math.min(500, itemCount * 35 + 60))
+      if (statusChartRef.value) {
+        statusChartRef.value.style.height = `${calculatedHeight}px`
+      }
 
       const option = {
         tooltip: {
-          trigger: 'item',
-          formatter: '{a} <br/>{b}: {c} ({d}%)'
+          trigger: 'axis',
+          axisPointer: {
+            type: 'shadow'
+          },
+          formatter: (params: any) => {
+            const param = params[0]
+            const total = values.reduce((sum, v) => sum + v, 0)
+            const percentage = total > 0 ? ((param.value / total) * 100).toFixed(1) : 0
+            return `${param.name}<br/>数量: ${param.value} (${percentage}%)`
+          }
         },
-        legend: {
-          orient: 'vertical',
-          left: 'left'
+        grid: {
+          left: '100px',
+          right: '4%',
+          bottom: '3%',
+          top: '3%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'value',
+          axisLabel: {
+            color: uiStore.theme === 'dark' ? '#E5E7EB' : '#374151'
+          }
+        },
+        yAxis: {
+          type: 'category',
+          data: categories,
+          inverse: true,
+          axisLabel: {
+            interval: 0,
+            color: uiStore.theme === 'dark' ? '#E5E7EB' : '#374151'
+          },
+          axisLine: {
+            lineStyle: {
+              color: uiStore.theme === 'dark' ? '#374151' : '#E5E7EB'
+            }
+          }
         },
         series: [
           {
             name: '阅读状态',
-            type: 'pie',
-            radius: ['40%', '70%'],
-            avoidLabelOverlap: false,
-            itemStyle: {
-              borderRadius: 10,
-              borderColor: '#fff',
-              borderWidth: 2
-            },
-            label: {
-              show: false,
-              position: 'center'
-            },
-            emphasis: {
-              label: {
-                show: true,
-                fontSize: '20',
-                fontWeight: 'bold'
+            type: 'bar',
+            data: values.map((value, index) => ({
+              value,
+              itemStyle: {
+                color: colors[index % colors.length],
+                borderRadius: [0, 4, 4, 0]
               }
-            },
-            labelLine: {
-              show: false
-            },
-            data: statusData
+            })),
+            label: {
+              show: true,
+              position: 'right',
+              formatter: '{c}',
+              color: uiStore.theme === 'dark' ? '#E5E7EB' : '#374151'
+            }
           }
         ]
       }
@@ -268,7 +319,7 @@ const createStatusChart = () => {
   }
 }
 
-// 创建类型分布饼图
+// 创建类型分布横向条形图
 const createCategoryChart = () => {
   if (!categoryChartRef.value || !data.value) return
 
@@ -280,47 +331,85 @@ const createCategoryChart = () => {
 
       categoryChartInstance = echarts.init(categoryChartRef.value)
 
-      // 使用后端已计算的类型统计数据
-      const categoryData = data.value!.categoryStats.map(item => ({
-        name: item.name,
-        value: item.value
-      }))
+      // 使用后端已计算的类型统计数据，按值降序排序
+      const categoryData = [...data.value!.categoryStats]
+        .map(item => ({
+          name: item.name,
+          value: item.value
+        }))
+        .sort((a, b) => {
+          // 确保降序排序：数值大的在前
+          return b.value - a.value
+        })
+
+      const categories = categoryData.map(item => item.name)
+      const values = categoryData.map(item => item.value)
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
+
+      // 根据数据项数量动态计算图表高度（每项约35px，最小300px，最大500px）
+      const itemCount = categories.length
+      const calculatedHeight = Math.max(300, Math.min(500, itemCount * 35 + 60))
+      if (categoryChartRef.value) {
+        categoryChartRef.value.style.height = `${calculatedHeight}px`
+      }
 
       const option = {
         tooltip: {
-          trigger: 'item',
-          formatter: '{a} <br/>{b}: {c} ({d}%)'
+          trigger: 'axis',
+          axisPointer: {
+            type: 'shadow'
+          },
+          formatter: (params: any) => {
+            const param = params[0]
+            const total = values.reduce((sum, v) => sum + v, 0)
+            const percentage = total > 0 ? ((param.value / total) * 100).toFixed(1) : 0
+            return `${param.name}<br/>数量: ${param.value} (${percentage}%)`
+          }
         },
-        legend: {
-          orient: 'vertical',
-          left: 'left'
+        grid: {
+          left: '100px',
+          right: '4%',
+          bottom: '3%',
+          top: '3%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'value',
+          axisLabel: {
+            color: uiStore.theme === 'dark' ? '#E5E7EB' : '#374151'
+          }
+        },
+        yAxis: {
+          type: 'category',
+          data: categories,
+          inverse: true,
+          axisLabel: {
+            interval: 0,
+            color: uiStore.theme === 'dark' ? '#E5E7EB' : '#374151'
+          },
+          axisLine: {
+            lineStyle: {
+              color: uiStore.theme === 'dark' ? '#374151' : '#E5E7EB'
+            }
+          }
         },
         series: [
           {
             name: '书籍类型',
-            type: 'pie',
-            radius: ['40%', '70%'],
-            avoidLabelOverlap: false,
-            itemStyle: {
-              borderRadius: 10,
-              borderColor: '#fff',
-              borderWidth: 2
-            },
-            label: {
-              show: false,
-              position: 'center'
-            },
-            emphasis: {
-              label: {
-                show: true,
-                fontSize: '20',
-                fontWeight: 'bold'
+            type: 'bar',
+            data: values.map((value, index) => ({
+              value,
+              itemStyle: {
+                color: colors[index % colors.length],
+                borderRadius: [0, 4, 4, 0]
               }
-            },
-            labelLine: {
-              show: false
-            },
-            data: categoryData
+            })),
+            label: {
+              show: true,
+              position: 'right',
+              formatter: '{c}',
+              color: uiStore.theme === 'dark' ? '#E5E7EB' : '#374151'
+            }
           }
         ]
       }
@@ -332,7 +421,7 @@ const createCategoryChart = () => {
   }
 }
 
-// 创建平台分布饼图
+// 创建平台分布横向条形图
 const createPlatformChart = () => {
   if (!platformChartRef.value || !data.value) return
 
@@ -344,47 +433,85 @@ const createPlatformChart = () => {
 
       platformChartInstance = echarts.init(platformChartRef.value)
 
-      // 使用后端已计算的平台统计数据
-      const platformData = data.value!.platformStats.map(item => ({
-        name: item.name,
-        value: item.value
-      }))
+      // 使用后端已计算的平台统计数据，按值降序排序
+      const platformData = [...data.value!.platformStats]
+        .map(item => ({
+          name: item.name,
+          value: item.value
+        }))
+        .sort((a, b) => {
+          // 确保降序排序：数值大的在前
+          return b.value - a.value
+        })
+
+      const categories = platformData.map(item => item.name)
+      const values = platformData.map(item => item.value)
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
+
+      // 根据数据项数量动态计算图表高度（每项约35px，最小300px，最大500px）
+      const itemCount = categories.length
+      const calculatedHeight = Math.max(300, Math.min(500, itemCount * 35 + 60))
+      if (platformChartRef.value) {
+        platformChartRef.value.style.height = `${calculatedHeight}px`
+      }
 
       const option = {
         tooltip: {
-          trigger: 'item',
-          formatter: '{a} <br/>{b}: {c} ({d}%)'
+          trigger: 'axis',
+          axisPointer: {
+            type: 'shadow'
+          },
+          formatter: (params: any) => {
+            const param = params[0]
+            const total = values.reduce((sum, v) => sum + v, 0)
+            const percentage = total > 0 ? ((param.value / total) * 100).toFixed(1) : 0
+            return `${param.name}<br/>数量: ${param.value} (${percentage}%)`
+          }
         },
-        legend: {
-          orient: 'vertical',
-          left: 'left'
+        grid: {
+          left: '100px',
+          right: '4%',
+          bottom: '3%',
+          top: '3%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'value',
+          axisLabel: {
+            color: uiStore.theme === 'dark' ? '#E5E7EB' : '#374151'
+          }
+        },
+        yAxis: {
+          type: 'category',
+          data: categories,
+          inverse: true,
+          axisLabel: {
+            interval: 0,
+            color: uiStore.theme === 'dark' ? '#E5E7EB' : '#374151'
+          },
+          axisLine: {
+            lineStyle: {
+              color: uiStore.theme === 'dark' ? '#374151' : '#E5E7EB'
+            }
+          }
         },
         series: [
           {
             name: '阅读平台',
-            type: 'pie',
-            radius: ['40%', '70%'],
-            avoidLabelOverlap: false,
-            itemStyle: {
-              borderRadius: 10,
-              borderColor: '#fff',
-              borderWidth: 2
-            },
-            label: {
-              show: false,
-              position: 'center'
-            },
-            emphasis: {
-              label: {
-                show: true,
-                fontSize: '20',
-                fontWeight: 'bold'
+            type: 'bar',
+            data: values.map((value, index) => ({
+              value,
+              itemStyle: {
+                color: colors[index % colors.length],
+                borderRadius: [0, 4, 4, 0]
               }
-            },
-            labelLine: {
-              show: false
-            },
-            data: platformData
+            })),
+            label: {
+              show: true,
+              position: 'right',
+              formatter: '{c}',
+              color: uiStore.theme === 'dark' ? '#E5E7EB' : '#374151'
+            }
           }
         ]
       }
@@ -523,6 +650,17 @@ const refreshData = () => {
 watch(() => bookshelfStore.bookshelves, (newBookshelves) => {
   bookshelves.value = newBookshelves
 }, { deep: true })
+
+// 监听主题变化，更新图表主题
+watch(() => uiStore.theme, () => {
+  if (data.value) {
+    setTimeout(() => {
+      createStatusChart()
+      createCategoryChart()
+      createPlatformChart()
+    }, 100)
+  }
+})
 
 onMounted(async () => {
   console.log('统计分析页面加载')
@@ -741,7 +879,28 @@ onMounted(async () => {
 
 .chart {
   width: 100%;
-  height: 300px;
+  min-height: 300px;
+  max-height: 500px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.chart::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chart::-webkit-scrollbar-track {
+  background: var(--color-bg-soft, #f3f4f6);
+  border-radius: 3px;
+}
+
+.chart::-webkit-scrollbar-thumb {
+  background: var(--color-border, #d1d5db);
+  border-radius: 3px;
+}
+
+.chart::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary, #9ca3af);
 }
 
 .charts-row {

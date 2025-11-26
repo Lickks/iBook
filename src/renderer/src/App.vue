@@ -23,8 +23,7 @@ const navItems = [
 
 const activeRoute = computed(() => route.name)
 const themeLabel = computed(() => {
-  const theme = uiStore.getEffectiveTheme()
-  return theme === 'dark' ? '切换为亮色' : '切换为暗色'
+  return uiStore.theme === 'dark' ? '切换为亮色' : '切换为暗色'
 })
 
 // 书架相关状态
@@ -196,7 +195,7 @@ onMounted(() => {
         </div>
         <div class="topbar-actions">
           <button class="ghost-btn" type="button" :title="themeLabel" @click="uiStore.toggleTheme">
-            {{ uiStore.getEffectiveTheme() === 'dark' ? '🌙' : '☀️' }}
+            {{ uiStore.theme === 'dark' ? '🌙' : '☀️' }}
           </button>
         </div>
       </header>
