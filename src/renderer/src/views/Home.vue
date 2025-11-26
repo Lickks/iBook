@@ -247,11 +247,11 @@ async function handleRemoveFromBookshelf(): Promise<void> {
 </script>
 
 <template>
-  <section class="home-view">
-    <header class="section-header">
+  <section class="page-container home-view">
+    <header class="page-header">
       <div>
         <p class="eyebrow">我的书架</p>
-        <h2>共 {{ bookStore.books.length }} 本书籍</h2>
+        <h1>共 {{ bookStore.books.length }} 本书籍</h1>
         <p class="subtitle">总字数 {{ bookStore.totalWordCount.toLocaleString() }} 字</p>
       </div>
       <div class="section-actions">
@@ -450,31 +450,7 @@ async function handleRemoveFromBookshelf(): Promise<void> {
 .home-view {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.eyebrow {
-  font-size: 14px;
-  color: var(--color-text-tertiary);
-}
-
-h2 {
-  margin: 4px 0;
-  font-size: 28px;
-  color: var(--color-text-primary);
-}
-
-.subtitle {
-  color: var(--color-text-secondary);
-  font-size: 14px;
+  gap: 24px;
 }
 
 .section-actions {

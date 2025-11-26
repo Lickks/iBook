@@ -179,14 +179,18 @@ function getTagStyle(tag: Tag): Record<string, string> {
 </script>
 
 <template>
-  <div class="tag-management">
-    <div class="page-header">
-      <h1 class="page-title">标签管理</h1>
+  <div class="page-container tag-management">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">内容管理</p>
+        <h1>标签管理</h1>
+        <p class="subtitle">管理您的书籍标签，方便分类和检索</p>
+      </div>
       <button class="btn btn-primary" type="button" @click="openCreateDialog">
         <span class="icon">+</span>
         <span>创建标签</span>
       </button>
-    </div>
+    </header>
 
     <div v-if="tagStore.loading" class="loading-state">
       <div class="tag-grid">
@@ -331,23 +335,9 @@ function getTagStyle(tag: Tag): Record<string, string> {
 
 <style scoped>
 .tag-management {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.page-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin: 0;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .btn {

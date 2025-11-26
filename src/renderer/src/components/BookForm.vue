@@ -32,6 +32,8 @@ const form = reactive({
 
 const errors = reactive<{ title?: string; wordCount?: string }>({})
 const coverInputRef = ref<HTMLInputElement>()
+const isDragging = ref(false)
+const dragCounter = ref(0)
 
 watch(
   () => props.initialValue,
@@ -129,6 +131,51 @@ function removeCover(): void {
     coverInputRef.value.value = ''
   }
 }
+
+function handleDragEnter(event: DragEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  dragCounter.value++
+  if (event.dataTransfer?.items && event.dataTransfer.items.length > 0) {
+    isDragging.value = true
+  }
+}
+
+function handleDragLeave(event: DragEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  dragCounter.value--
+  if (dragCounter.value === 0) {
+    isDragging.value = false
+  }
+}
+
+function handleDragOver(event: DragEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+function handleDrop(event: DragEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  isDragging.value = false
+  dragCounter.value = 0
+
+  const files = event.dataTransfer?.files
+  if (!files || files.length === 0) return
+
+  const file = files[0]
+  // 检查是否为图片文件
+  if (!file.type.startsWith('image/')) {
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    form.coverUrl = String(reader.result || '')
+  }
+  reader.readAsDataURL(file)
+}
 </script>
 
 <template>
@@ -193,7 +240,14 @@ function removeCover(): void {
       <div class="cover-section">
         <h3 class="section-title">书籍封面</h3>
 
-        <div class="cover-upload-area">
+        <div
+          class="cover-upload-area"
+          :class="{ 'is-dragging': isDragging }"
+          @dragenter="handleDragEnter"
+          @dragleave="handleDragLeave"
+          @dragover="handleDragOver"
+          @drop="handleDrop"
+        >
           <div class="cover-preview" v-if="form.coverUrl">
             <img :src="form.coverUrl" alt="封面预览" />
             <div class="cover-overlay">
@@ -204,7 +258,7 @@ function removeCover(): void {
           <div v-else class="upload-placeholder" @click="triggerFileInput">
             <div class="upload-icon">📷</div>
             <div class="upload-text">
-              <p>点击上传封面</p>
+              <p>{{ isDragging ? '松开鼠标上传封面' : '点击或拖拽上传封面' }}</p>
               <small>支持 JPG、PNG 格式</small>
             </div>
           </div>
@@ -353,6 +407,17 @@ function removeCover(): void {
   position: relative;
   display: flex;
   justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.cover-upload-area.is-dragging {
+  transform: scale(1.05);
+}
+
+.cover-upload-area.is-dragging .upload-placeholder {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border-width: 3px;
 }
 
 .cover-preview {

@@ -80,11 +80,11 @@ async function loadBookshelfStats(bookshelf: Bookshelf): Promise<number> {
 </script>
 
 <template>
-  <section class="bookshelf-management">
-    <header class="section-header">
+  <section class="page-container bookshelf-management">
+    <header class="page-header">
       <div>
-        <p class="eyebrow">书架管理</p>
-        <h2>我的书架</h2>
+        <p class="eyebrow">内容管理</p>
+        <h1>我的书架</h1>
         <p class="subtitle">共 {{ bookshelves.length }} 个书架</p>
       </div>
       <button class="primary-btn" type="button" @click="openCreateDialog">
@@ -169,31 +169,7 @@ async function loadBookshelfStats(bookshelf: Bookshelf): Promise<number> {
 .bookshelf-management {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.eyebrow {
-  font-size: 14px;
-  color: var(--color-text-tertiary);
-}
-
-h2 {
-  margin: 4px 0;
-  font-size: 28px;
-  color: var(--color-text-primary);
-}
-
-.subtitle {
-  color: var(--color-text-secondary);
-  font-size: 14px;
+  gap: 24px;
 }
 
 .primary-btn {

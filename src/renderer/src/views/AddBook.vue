@@ -138,11 +138,11 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
 </script>
 
 <template>
-  <section class="add-book">
+  <section class="page-container add-book">
     <header class="page-header">
       <div>
         <p class="eyebrow">新增书籍</p>
-        <h2>手动录入书籍信息</h2>
+        <h1>手动录入书籍信息</h1>
         <p class="subtitle">完善书籍信息，方便后续检索与管理。</p>
       </div>
     </header>
@@ -194,17 +194,7 @@ async function handleImportFromSearch(result: SearchResult): Promise<void> {
 .add-book {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-
-.page-header h2 {
-  font-size: 26px;
-  margin-bottom: 4px;
-  color: var(--color-text-primary);
-}
-
-.subtitle {
-  color: var(--color-text-secondary);
+  gap: 24px;
 }
 
 .feedback {

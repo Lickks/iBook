@@ -846,11 +846,11 @@ function handleClear(): void {
 </script>
 
 <template>
-  <section class="batch-import">
+  <section class="page-container batch-import">
     <header class="page-header">
       <div>
         <p class="eyebrow">批量导入</p>
-        <h2>批量导入书籍</h2>
+        <h1>批量导入书籍</h1>
         <p class="subtitle">支持通过书名列表或文件上传的方式批量导入书籍</p>
       </div>
     </header>
@@ -1168,16 +1168,6 @@ function handleClear(): void {
   display: flex;
   flex-direction: column;
   gap: 24px;
-}
-
-.page-header h2 {
-  font-size: 26px;
-  margin-bottom: 4px;
-  color: var(--color-text-primary);
-}
-
-.subtitle {
-  color: var(--color-text-secondary);
 }
 
 .tab-switcher {

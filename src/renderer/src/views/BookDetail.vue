@@ -28,6 +28,8 @@ const uploadingDocument = ref(false)
 const countingWords = ref(false)
 const showWordCountDialog = ref(false)
 const selectedWordSource = ref<'document' | 'manual' | 'search'>('manual')
+const isDraggingDocument = ref(false)
+const dragDocumentCounter = ref(0)
 
 const bookId = computed(() => Number(route.params.id))
 const statusMap: Record<string, string> = {
@@ -136,29 +138,28 @@ async function loadDocuments(): Promise<void> {
   }
 }
 
-// 上传文档
-async function handleUploadDocument(): Promise<void> {
+// 上传文档（通过文件路径）
+async function uploadDocumentByPath(filePath: string): Promise<void> {
   uploadingDocument.value = true
   try {
-    // 选择文件
-    const fileResult = await window.api.document.selectFile()
-    if (!fileResult.success || !fileResult.data) {
-      return
-    }
-
-    const filePath = fileResult.data
-
     // 上传文件
     const uploadResult = await window.api.document.upload(filePath, bookId.value)
     if (uploadResult.success) {
       ElMessage.success('文档上传成功')
       await loadDocuments()
 
-      // 如果文档字数大于0，询问是否使用文档字数
+      // 自动更新文档统计字数到数据库
       const document = uploadResult.data
       if (document && document.wordCount > 0) {
+        // 一本书只有一个文档，直接使用当前文档的字数
         const roundedWordCount = roundWordCount(document.wordCount)
         if (roundedWordCount) {
+          // 自动更新 wordCountDocument 字段，不需要用户选择
+          await bookStore.updateBook(bookId.value, {
+            wordCountDocument: roundedWordCount
+          })
+          
+          // 询问是否使用文档字数作为当前显示的字数
           await ElMessageBox.confirm(
             `检测到文档字数为 ${formatWordCount(roundedWordCount)}，是否使用此字数作为书籍字数？`,
             '提示',
@@ -172,7 +173,7 @@ async function handleUploadDocument(): Promise<void> {
               await handleSetWordCountSource('document', roundedWordCount)
             })
             .catch(() => {
-              // 用户选择否，不做任何操作
+              // 用户选择否，不做任何操作（但 wordCountDocument 已经更新了）
             })
         }
       }
@@ -184,6 +185,87 @@ async function handleUploadDocument(): Promise<void> {
     ElMessage.error(error?.message || '上传文档失败')
   } finally {
     uploadingDocument.value = false
+  }
+}
+
+// 上传文档（通过按钮点击）
+async function handleUploadDocument(): Promise<void> {
+  try {
+    // 选择文件
+    const fileResult = await window.api.document.selectFile()
+    if (!fileResult.success || !fileResult.data) {
+      return
+    }
+
+    const filePath = fileResult.data
+    await uploadDocumentByPath(filePath)
+  } catch (error: any) {
+    console.error('上传文档失败:', error)
+    ElMessage.error(error?.message || '上传文档失败')
+  }
+}
+
+// 处理文档拖拽
+function handleDocumentDragEnter(event: DragEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  dragDocumentCounter.value++
+  if (event.dataTransfer?.items && event.dataTransfer.items.length > 0) {
+    isDraggingDocument.value = true
+  }
+}
+
+function handleDocumentDragLeave(event: DragEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  dragDocumentCounter.value--
+  if (dragDocumentCounter.value === 0) {
+    isDraggingDocument.value = false
+  }
+}
+
+function handleDocumentDragOver(event: DragEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+}
+
+async function handleDocumentDrop(event: DragEvent): Promise<void> {
+  event.preventDefault()
+  event.stopPropagation()
+  isDraggingDocument.value = false
+  dragDocumentCounter.value = 0
+
+  const files = event.dataTransfer?.files
+  if (!files || files.length === 0) return
+
+  // 在 Electron 中，拖拽的文件可能包含 path 属性
+  const file = files[0] as File & { path?: string }
+
+  // 检查文件类型
+  const allowedTypes = [
+    'text/plain',
+    'application/epub+zip',
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword'
+  ]
+  const allowedExtensions = ['.txt', '.epub', '.pdf', '.docx', '.doc', '.mobi', '.azw', '.azw3']
+  const fileName = file.name.toLowerCase()
+  const hasValidExtension = allowedExtensions.some((ext) => fileName.endsWith(ext))
+
+  if (!hasValidExtension && !allowedTypes.includes(file.type)) {
+    ElMessage.warning(
+      '不支持的文件格式，请上传 TXT、EPUB、PDF、DOCX、DOC、MOBI、AZW、AZW3 格式的文件'
+    )
+    return
+  }
+
+  // 如果文件有 path 属性（Electron 拖拽文件），直接使用路径
+  if (file.path) {
+    await uploadDocumentByPath(file.path)
+  } else {
+    // 如果没有 path，提示用户使用文件选择对话框
+    ElMessage.info('请使用文件选择按钮上传文档')
   }
 }
 
@@ -258,8 +340,14 @@ async function handleSetWordCountSource(
     }
 
     // 如果是文档来源，更新 wordCountDocument
+    // 只有当字数大于0时才更新，避免覆盖已保存的值
     if (source === 'document') {
-      updateData.wordCountDocument = wordCount
+      if (wordCount > 0) {
+        updateData.wordCountDocument = wordCount
+      } else {
+        // 如果字数为0，使用数据库中保存的值（不更新）
+        updateData.wordCountDisplay = book.value.wordCountDocument || 0
+      }
     }
     // 如果是手动输入，更新 wordCountManual
     else if (source === 'manual') {
@@ -292,7 +380,9 @@ function formatFileSize(bytes: number): string {
 const wordCountInfo = computed(() => {
   if (!book.value) return null
 
-  const docWordCount = documents.value.reduce((sum, doc) => sum + (doc.wordCount || 0), 0)
+  // 文档统计字数使用数据库中保存的值，而不是实时计算
+  // 这样即使文档被删除，字数也会保留
+  const docWordCount = book.value.wordCountDocument || 0
   const searchWordCount = book.value.wordCountSearch || 0
   const manualWordCount = book.value.wordCountManual || 0
   const currentSource = book.value.wordCountSource || 'manual'
@@ -409,11 +499,11 @@ watch(
 </script>
 
 <template>
-  <section class="book-detail" v-if="book">
-    <header class="detail-header">
+  <section class="page-container book-detail" v-if="book">
+    <header class="page-header">
       <div>
         <p class="eyebrow">书籍详情</p>
-        <h2>{{ book.title }}</h2>
+        <h1>{{ book.title }}</h1>
         <p class="subtitle">
           {{ book.author || '未知作者' }} · {{ book.platform || '未知平台' }}
         </p>
@@ -450,7 +540,14 @@ watch(
       </article>
 
       <!-- 文档管理区域 -->
-      <section class="document-section">
+      <section
+        class="document-section"
+        :class="{ 'is-dragging': isDraggingDocument }"
+        @dragenter="handleDocumentDragEnter"
+        @dragleave="handleDocumentDragLeave"
+        @dragover="handleDocumentDragOver"
+        @drop="handleDocumentDrop"
+      >
         <div class="section-header">
           <h3>文档管理</h3>
           <button
@@ -463,11 +560,14 @@ watch(
           </button>
         </div>
 
-        <div v-if="loadingDocuments" class="loading-state">加载中...</div>
+        <div v-if="loadingDocuments" class="loading-state">
+          <div class="loading-spinner"></div>
+          <p>加载中...</p>
+        </div>
 
         <div v-else-if="documents.length === 0" class="empty-state">
-          <p>暂无文档，点击上方按钮上传</p>
-          <p class="hint">支持 TXT、EPUB、PDF、DOCX 格式</p>
+          <p>{{ isDraggingDocument ? '松开鼠标上传文档' : '点击上方按钮或拖拽文件上传' }}</p>
+          <p class="hint">支持 TXT、EPUB、PDF、DOCX、DOC、MOBI、AZW、AZW3 格式</p>
         </div>
 
         <div v-else class="documents-list">
@@ -524,7 +624,7 @@ watch(
             <div
               class="source-item"
               :class="{ active: wordCountInfo.source === 'document' }"
-              @click="handleSetWordCountSource('document', wordCountInfo.document)"
+              @click="handleSetWordCountSource('document', documents.length > 0 ? (documents[0].wordCount || 0) : wordCountInfo.document)"
             >
               <span class="source-label">文档统计</span>
               <span class="source-value">{{ formatWordCount(wordCountInfo.document) }}</span>
@@ -578,22 +678,6 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 24px;
-}
-
-.detail-header {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.detail-header h2 {
-  font-size: 28px;
-  margin: 6px 0;
-}
-
-.subtitle {
-  color: var(--color-text-secondary);
 }
 
 .header-actions {
@@ -694,6 +778,67 @@ watch(
 /* 文档管理样式 */
 .document-section {
   margin-top: 24px;
+  transition: all 0.3s ease;
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.document-section.is-dragging {
+  background: var(--color-accent-soft);
+  border: 2px dashed var(--color-accent);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: var(--color-bg-soft);
+  border-radius: 12px;
+  color: var(--color-text-secondary);
+}
+
+.empty-state .hint {
+  font-size: 12px;
+  margin-top: 8px;
+  color: var(--color-text-tertiary);
+}
+
+.loading-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--color-text-secondary);
+}
+
+.loading-state .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-state p {
+  margin: 0;
+  font-size: 14px;
 }
 
 .section-header {
@@ -729,20 +874,6 @@ watch(
   cursor: not-allowed;
 }
 
-.loading-state,
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  background: var(--color-bg-soft);
-  border-radius: 12px;
-  color: var(--color-text-secondary);
-}
-
-.empty-state .hint {
-  font-size: 12px;
-  margin-top: 8px;
-  color: var(--color-text-tertiary);
-}
 
 .documents-list {
   display: flex;

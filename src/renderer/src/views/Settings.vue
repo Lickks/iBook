@@ -1,9 +1,12 @@
 <template>
-  <div class="settings-page">
-    <div class="page-header">
-      <h1>设置</h1>
-      <p class="subtitle">个性化您的阅读体验</p>
-    </div>
+  <div class="page-container settings-page">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">系统设置</p>
+        <h1>设置</h1>
+        <p class="subtitle">个性化您的阅读体验</p>
+      </div>
+    </header>
 
     <div class="settings-content">
       <section class="settings-section">
@@ -318,25 +321,9 @@ async function handleRestore() {
 
 <style scoped>
 .settings-page {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.page-header {
-  margin-bottom: 32px;
-}
-
-.page-header h1 {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin: 0 0 8px 0;
-}
-
-.subtitle {
-  font-size: 14px;
-  color: var(--color-text-tertiary);
-  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .settings-content {

@@ -1,8 +1,9 @@
 <template>
-  <div class="statistics-page">
+  <div class="page-container statistics-page">
     <!-- 页面标题 -->
-    <div class="page-header">
-      <div class="header-left">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">数据统计</p>
         <h1>统计分析</h1>
         <p class="subtitle">查看您的阅读数据和统计信息</p>
       </div>
@@ -37,7 +38,7 @@
           {{ loading ? '刷新中...' : '刷新数据' }}
         </button>
       </div>
-    </div>
+    </header>
 
     <!-- 加载中 -->
     <div v-if="loading" class="loading-container">
@@ -738,35 +739,9 @@ onUnmounted(() => {
 
 <style scoped>
 .statistics-page {
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.page-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 32px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--el-border-color-light, #e5e7eb);
-}
-
-.header-left {
-  flex: 1;
-}
-
-.page-header h1 {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin: 0 0 4px 0;
-}
-
-.subtitle {
-  color: var(--el-text-color-secondary, #6b7280);
-  margin: 0;
-  font-size: 16px;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .header-right {
@@ -1105,10 +1080,6 @@ onUnmounted(() => {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .statistics-page {
-    padding: 16px;
-  }
-
   .page-header {
     flex-direction: column;
     gap: 16px;
