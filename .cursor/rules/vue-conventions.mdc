@@ -1,0 +1,170 @@
+---
+globs: *.vue
+description: Vue 3 组件开发规范
+---
+
+# Vue 3 组件开发规范
+
+## 组件结构
+
+使用 `<script setup lang="ts">` 语法，组件结构顺序：
+
+```vue
+<template>
+  <!-- 模板内容 -->
+</template>
+
+<script setup lang="ts">
+// 1. 导入依赖
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import type { Book } from '../types'
+
+// 2. Props 和 Emits 定义
+const props = withDefaults(
+  defineProps<{
+    book: Book
+    view?: 'grid' | 'list'
+  }>(),
+  {
+    view: 'grid'
+  }
+)
+
+const emit = defineEmits<{
+  (e: 'update', book: Book): void
+  (e: 'delete', id: number): void
+}>()
+
+// 3. Composables 和 Stores
+const router = useRouter()
+const bookStore = useBookStore()
+
+// 4. 响应式状态
+const isLoading = ref(false)
+const searchKeyword = ref('')
+
+// 5. 计算属性
+const filteredBooks = computed(() => {
+  // ...
+})
+
+// 6. 方法
+function handleSubmit() {
+  // ...
+}
+
+// 7. 生命周期
+onMounted(() => {
+  // ...
+})
+</script>
+
+<style scoped>
+/* 样式 */
+</style>
+```
+
+## Props 定义
+
+- 使用 `withDefaults` 和泛型定义 Props
+- 提供合理的默认值
+- 使用 TypeScript 类型而非运行时验证
+
+```typescript
+const props = withDefaults(
+  defineProps<{
+    book: Book
+    highlight?: string
+    selectable?: boolean
+  }>(),
+  {
+    highlight: '',
+    selectable: false
+  }
+)
+```
+
+## 状态管理
+
+- 优先使用 Pinia stores 管理共享状态
+- 组件内部状态使用 `ref` 或 `reactive`
+- 复杂计算使用 `computed`
+
+```typescript
+// 使用 Store
+const bookStore = useBookStore()
+const books = computed(() => bookStore.books)
+
+// 组件内部状态
+const isLoading = ref(false)
+const formData = reactive({
+  title: '',
+  author: ''
+})
+```
+
+## 事件处理
+
+- 使用 `defineEmits` 定义事件类型
+- 事件名使用 kebab-case：`update-book`、`toggle-select`
+- 事件处理函数使用 `handle` 前缀
+
+```typescript
+const emit = defineEmits<{
+  (e: 'update-book', book: Book): void
+  (e: 'toggle-select', id: number): void
+}>()
+
+function handleClick() {
+  emit('update-book', book)
+}
+```
+
+## 样式规范
+
+- 使用 `scoped` 样式避免样式污染
+- 使用 CSS 变量支持主题切换
+- 遵循 BEM 命名规范（可选）
+
+```vue
+<style scoped>
+.book-card {
+  padding: 16px;
+}
+
+.book-card__title {
+  font-size: 18px;
+  color: var(--el-text-color-primary);
+}
+</style>
+```
+
+## Element Plus 使用
+
+- 使用 Element Plus 组件库
+- 支持暗色主题（自动通过 CSS Variables）
+- 使用 `ElMessage`、`ElMessageBox` 等反馈组件
+
+```typescript
+import { ElMessage, ElMessageBox } from 'element-plus'
+
+async function handleDelete() {
+  try {
+    await ElMessageBox.confirm('确定删除吗？', '提示', {
+      type: 'warning'
+    })
+    await bookStore.deleteBook(book.id)
+    ElMessage.success('删除成功')
+  } catch {
+    // 用户取消
+  }
+}
+```
+
+## 性能优化
+
+- 使用 `v-show` 而非 `v-if` 用于频繁切换的显示
+- 大列表使用虚拟滚动（VirtualList 组件）
+- 使用 `computed` 缓存计算结果
+- 避免在模板中使用复杂表达式

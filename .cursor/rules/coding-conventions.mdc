@@ -1,60 +1,34 @@
 ---
-description: 代码风格和约定
+description: 通用代码风格和格式规范
 ---
 
-# 代码风格和约定
+# 通用代码风格规范
 
-## 通用规范
+## 代码格式
 
-### 文件命名
-- TypeScript 文件：`camelCase.ts` 或 `PascalCase.ts`（组件）
-- Vue 组件：`PascalCase.vue`
-- 工具文件：`camelCase.ts`
-
-### 代码格式
 - 使用 2 个空格缩进
 - 使用单引号（字符串）
 - 语句末尾使用分号
 - 遵循 ESLint 和 Prettier 配置
 
-### 注释
+## 注释规范
+
 - 使用中文注释（项目为中文项目）
 - 复杂逻辑必须添加注释
 - 函数和类使用 JSDoc 风格注释
+- 注释集中在 "为什么"（why），而非 "是什么"（what）
 
-## 错误处理
+## 字符使用规范
 
-### 主进程
-```typescript
-try {
-  // 操作
-} catch (error) {
-  logger.error('操作失败:', error)
-  throw error // 或返回错误响应
-}
-```
-
-### 渲染进程
-```typescript
-try {
-  // 操作
-} catch (error) {
-  ElMessage.error('操作失败，请重试')
-  console.error(error)
-}
-```
+- **禁止在代码中使用 emoji**：代码、注释、变量名、函数名、字符串等任何位置都不得使用 emoji
+- 错误消息、用户提示信息等也不应包含 emoji
+- 保持代码的专业性和可读性
 
 ## 异步操作
 
 - 优先使用 `async/await`
 - 避免回调地狱
 - 始终处理 Promise 错误
-
-## 数据库操作
-
-- 使用参数化查询
-- 事务操作使用 `db.transaction()`
-- 批量操作使用事务提高性能
 
 ## 性能优化
 
@@ -63,13 +37,10 @@ try {
 - 避免不必要的响应式数据
 - 使用 `computed` 而非 `watch` 处理派生状态
 
-## 测试
-
-- 关键业务逻辑应该有错误处理
-- 边界情况要考虑（空数据、网络错误、文件损坏等）
-
-## Git 提交
+## Git 提交规范
 
 - 遵循 Conventional Commits 规范
 - 提交信息格式：`type(scope): description`
 - 类型：`feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+
+> 注意：错误处理、数据库操作等详细规范请参考对应的专门规则文件。

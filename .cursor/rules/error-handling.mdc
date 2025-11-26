@@ -1,0 +1,170 @@
+---
+alwaysApply: true
+description: 错误处理和日志规范
+---
+
+# 错误处理和日志规范
+
+## 错误处理层次
+
+### 1. 主进程（Services）
+
+- 捕获异常并记录日志
+- 抛出有意义的错误信息
+- 不直接返回错误对象，由上层处理
+
+```typescript
+// services/database.ts
+export function createBook(input: BookInput): Book {
+  try {
+    const stmt = db.prepare(/* ... */)
+    const result = stmt.run(/* ... */)
+    return getBookById(result.lastInsertRowid)
+  } catch (error: any) {
+    console.error('数据库操作失败:', error)
+    throw new Error(`创建书籍失败: ${error.message}`)
+  }
+}
+```
+
+### 2. IPC 处理器
+
+- 捕获服务层异常
+- 返回统一的响应格式
+- 记录错误但不暴露敏感信息
+
+```typescript
+// ipc/bookHandler.ts
+ipcMain.handle('book:create', async (_event, input: BookInput) => {
+  try {
+    const book = databaseService.createBook(input)
+    return { success: true, data: book }
+  } catch (error: any) {
+    console.error('创建书籍失败:', error)
+    return {
+      success: false,
+      error: error?.message || '创建书籍失败'
+    }
+  }
+})
+```
+
+### 3. API 层（Renderer）
+
+- 检查响应中的 `success` 字段
+- 将错误响应转换为异常
+- 提供用户友好的错误消息
+
+```typescript
+// api/book.ts
+export async function createBook(book: BookInput): Promise<Book> {
+  const response = await window.api.book.create(book)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '创建书籍失败')
+}
+```
+
+### 4. UI 层（Vue Components）
+
+- 使用 try-catch 捕获异步操作
+- 使用 Element Plus 消息组件提示用户
+- 不显示技术性错误信息给用户
+
+```typescript
+// components/BookForm.vue
+async function handleSubmit() {
+  try {
+    isLoading.value = true
+    await bookStore.createBook(formData)
+    ElMessage.success('创建成功')
+    router.push('/')
+  } catch (error: any) {
+    ElMessage.error(error.message || '创建失败，请重试')
+  } finally {
+    isLoading.value = false
+  }
+}
+```
+
+## 日志规范
+
+### 日志级别
+
+- **console.error**：错误和异常
+- **console.warn**：警告信息（谨慎使用）
+- **console.log**：开发调试信息（生产环境应移除）
+
+### 日志内容
+
+- 记录关键操作和错误
+- 包含必要的上下文信息（ID、操作类型等）
+- 避免记录敏感信息（密码、token 等）
+
+```typescript
+// 好的日志
+console.error('创建书籍失败:', { bookId, error: error.message })
+
+// 不好的日志
+console.error('错误') // 缺少上下文
+console.error(error) // 可能包含敏感信息
+```
+
+## 用户反馈
+
+### 成功操作
+
+```typescript
+ElMessage.success('操作成功')
+```
+
+### 错误操作
+
+```typescript
+ElMessage.error(error.message || '操作失败，请重试')
+```
+
+### 确认对话框
+
+```typescript
+try {
+  await ElMessageBox.confirm('确定删除吗？', '提示', {
+    type: 'warning'
+  })
+  // 执行删除
+} catch {
+  // 用户取消，不显示错误
+}
+```
+
+## 特殊场景
+
+### 文件操作
+
+```typescript
+try {
+  await fileManager.saveFile(filePath, bookId)
+} catch (error: any) {
+  if (error.code === 'ENOENT') {
+    throw new Error('文件不存在')
+  } else if (error.code === 'EACCES') {
+    throw new Error('没有权限访问文件')
+  }
+  throw new Error('文件操作失败')
+}
+```
+
+### 网络请求
+
+```typescript
+try {
+  const result = await spider.search(keyword)
+  return result
+} catch (error: any) {
+  if (error.code === 'ETIMEDOUT') {
+    throw new Error('请求超时，请检查网络连接')
+  }
+  throw new Error('网络请求失败')
+}
+```
