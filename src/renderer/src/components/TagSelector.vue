@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Check } from '@element-plus/icons-vue'
 import { useTagStore } from '../stores/tag'
 import { DEFAULT_TAG_COLORS } from '../constants'
 import type { Tag, TagInput } from '../types'
@@ -214,7 +215,7 @@ onBeforeUnmount(() => {
           >
             <span class="tag-dot" />
             <span class="tag-name">{{ tag.tagName }}</span>
-            <span class="check-icon">✓</span>
+            <el-icon class="check-icon"><Check /></el-icon>
           </div>
         </div>
       </div>
@@ -453,6 +454,8 @@ onBeforeUnmount(() => {
 .tag-option .check-icon {
   opacity: 0;
   transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
 }
 
 .tag-option:hover .check-icon {

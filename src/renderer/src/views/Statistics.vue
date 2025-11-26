@@ -51,7 +51,7 @@
       <!-- 统计卡片网格 -->
       <div class="stats-grid">
         <div class="stat-card primary">
-          <div class="stat-icon">📚</div>
+          <el-icon class="stat-icon"><Collection /></el-icon>
           <div class="stat-content">
             <div class="stat-value">{{ data.totalBooks }}</div>
             <div class="stat-label">总书籍数</div>
@@ -59,7 +59,7 @@
         </div>
 
         <div class="stat-card success">
-          <div class="stat-icon">📖</div>
+          <el-icon class="stat-icon"><Files /></el-icon>
           <div class="stat-content">
             <div class="stat-value">{{ formatNumber(data.totalWordCount) }}</div>
             <div class="stat-label">总字数</div>
@@ -68,7 +68,7 @@
 
   
         <div class="stat-card info">
-          <div class="stat-icon">✅</div>
+          <el-icon class="stat-icon"><Check /></el-icon>
           <div class="stat-content">
             <div class="stat-value">{{ data.finishedBooks }}</div>
             <div class="stat-label">已读完</div>
@@ -76,7 +76,7 @@
         </div>
 
         <div class="stat-card primary">
-          <div class="stat-icon">📖</div>
+          <el-icon class="stat-icon"><Reading /></el-icon>
           <div class="stat-content">
             <div class="stat-value">{{ data.readingBooks }}</div>
             <div class="stat-label">阅读中</div>
@@ -84,7 +84,7 @@
         </div>
 
         <div class="stat-card secondary">
-          <div class="stat-icon">📋</div>
+          <el-icon class="stat-icon"><Document /></el-icon>
           <div class="stat-content">
             <div class="stat-value">{{ data.unreadBooks }}</div>
             <div class="stat-label">未读</div>
@@ -141,6 +141,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Collection, Reading, Check, Document, Loading, Files } from '@element-plus/icons-vue'
+import { READING_STATUS_LABEL } from '../constants'
 import { useUIStore } from '../stores/ui'
 import { useBookshelfStore } from '../stores/bookshelf'
 import { statsApi } from '../api/stats'
@@ -263,24 +265,34 @@ const createStatusChart = () => {
 
       statusChartInstance = echarts.init(statusChartRef.value)
 
-      // 使用后端已计算的状态统计数据，按值降序排序
-      const statusData = [...data.value!.statusStats]
-        .map(item => ({
-          name: item.name,
-          value: item.value
-        }))
-        .sort((a, b) => {
-          // 确保降序排序：数值大的在前
-          return b.value - a.value
-        })
+      // 定义所有状态的固定顺序和颜色
+      const allStatuses = [
+        { key: 'unread', label: READING_STATUS_LABEL.unread, color: '#909399' },
+        { key: 'reading', label: READING_STATUS_LABEL.reading, color: '#409EFF' },
+        { key: 'finished', label: READING_STATUS_LABEL.finished, color: '#67C23A' },
+        { key: 'dropped', label: READING_STATUS_LABEL.dropped, color: '#F56C6C' },
+        { key: 'to-read', label: READING_STATUS_LABEL['to-read'], color: '#E6A23C' }
+      ]
+
+      // 将后端返回的数据转换为Map，方便查找
+      const statusMap = new Map(
+        data.value!.statusStats.map(item => [item.name, item.value])
+      )
+
+      // 确保所有状态都显示，缺失的状态值为0
+      const statusData = allStatuses.map(status => ({
+        name: status.label,
+        value: statusMap.get(status.label) || 0,
+        color: status.color
+      }))
 
       const categories = statusData.map(item => item.name)
       const values = statusData.map(item => item.value)
-      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316']
+      const colors = statusData.map(item => item.color)
 
-      // 根据数据项数量动态计算图表高度（每项约35px，最小300px，最大500px）
-      const itemCount = categories.length
-      const calculatedHeight = Math.max(300, Math.min(500, itemCount * 35 + 60))
+      // 固定显示5个状态，计算图表高度（每项约35px，加上边距）
+      const itemCount = 5
+      const calculatedHeight = itemCount * 35 + 60
       if (statusChartRef.value) {
         statusChartRef.value.style.height = `${calculatedHeight}px`
       }
@@ -578,9 +590,31 @@ const createWordCountChart = () => {
 
       wordCountChartInstance = echarts.init(wordCountChartRef.value)
 
-      // 使用后端已计算的字数统计数据
-      const categories = data.value!.wordCountStats.map(item => item.name)
-      const values = data.value!.wordCountStats.map(item => item.value)
+      // 定义所有字数范围的固定顺序
+      const allWordCountRanges = [
+        { name: '0-50万', color: '#3b82f6' },
+        { name: '50-100万', color: '#10b981' },
+        { name: '100-300万', color: '#f59e0b' },
+        { name: '300-500万', color: '#ef4444' },
+        { name: '500-1000万', color: '#8b5cf6' },
+        { name: '1000万以上', color: '#ec4899' }
+      ]
+
+      // 将后端返回的数据转换为Map，方便查找
+      const wordCountMap = new Map(
+        data.value!.wordCountStats.map(item => [item.name, item.value])
+      )
+
+      // 确保所有范围都显示，缺失的范围值为0
+      const wordCountData = allWordCountRanges.map(range => ({
+        name: range.name,
+        value: wordCountMap.get(range.name) || 0,
+        color: range.color
+      }))
+
+      const categories = wordCountData.map(item => item.name)
+      const values = wordCountData.map(item => item.value)
+      const colors = wordCountData.map(item => item.color)
 
       const option = {
         tooltip: {
@@ -613,7 +647,7 @@ const createWordCountChart = () => {
             data: values.map((value, index) => ({
               value,
               itemStyle: {
-                color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'][index % 6]
+                color: colors[index]
               }
             })),
             ...barAnimation
@@ -798,12 +832,16 @@ onUnmounted(() => {
 }
 
 .bookshelf-select-wrapper::after {
-  content: '▼';
+  content: '';
   position: absolute;
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 10px;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--color-text-secondary);
   color: var(--color-text-secondary);
   pointer-events: none;
   transition: all 0.2s ease;
@@ -907,6 +945,8 @@ onUnmounted(() => {
 .stat-icon {
   font-size: 32px;
   margin-right: 16px;
+  display: flex;
+  align-items: center;
 }
 
 .stat-content {
@@ -1122,6 +1162,8 @@ onUnmounted(() => {
   .stat-icon {
     font-size: 24px;
     margin-right: 12px;
+    display: flex;
+    align-items: center;
   }
 
   .stat-value {

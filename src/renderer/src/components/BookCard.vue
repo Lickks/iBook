@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Check, ArrowDown } from '@element-plus/icons-vue'
 import { useBookStore } from '../stores/book'
 import { useDisplayModeStore } from '../stores/displayMode'
 import { READING_STATUS_LABEL } from '../constants'
@@ -170,7 +171,7 @@ onUnmounted(() => {
       :class="{ active: selected }"
       @click="handleSelectIndicatorClick"
     >
-      <span v-if="selected">✔</span>
+      <el-icon v-if="selected"><Check /></el-icon>
     </button>
 
     <!-- 左上角阅读状态标签 -->
@@ -182,7 +183,7 @@ onUnmounted(() => {
           @click="handleStatusClick"
         >
           {{ readingStatusMap[book.readingStatus] }}
-          <span class="arrow">▼</span>
+          <el-icon class="arrow"><ArrowDown /></el-icon>
         </span>
 
         <div v-if="showStatusDropdown" class="status-dropdown">
@@ -196,7 +197,7 @@ onUnmounted(() => {
           >
             <span class="status-indicator" :style="{ backgroundColor: getStatusColor(key) }"></span>
             {{ label }}
-            <span v-if="key === book.readingStatus" class="check">✓</span>
+            <el-icon v-if="key === book.readingStatus" class="check"><Check /></el-icon>
           </div>
         </div>
       </div>
@@ -448,6 +449,8 @@ onUnmounted(() => {
   transform: translateY(-50%);
   font-size: 9px;
   opacity: 0.8;
+  display: flex;
+  align-items: center;
 }
 
 .status-dropdown {
@@ -518,6 +521,12 @@ onUnmounted(() => {
   color: var(--color-accent);
   font-weight: 600;
   font-size: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.select-indicator .el-icon {
+  font-size: 14px;
 }
 
 mark {

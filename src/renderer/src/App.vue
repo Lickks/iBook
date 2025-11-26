@@ -5,6 +5,20 @@ import { useUIStore } from './stores/ui'
 import { useBookStore } from './stores/book'
 import { useBookshelfStore } from './stores/bookshelf'
 import BookshelfDialog from './components/BookshelfDialog.vue'
+import {
+  Collection,
+  Box,
+  PriceTag,
+  DataAnalysis,
+  Setting,
+  Reading,
+  Plus,
+  Menu,
+  Close,
+  Moon,
+  Sunny,
+  ArrowDown
+} from '@element-plus/icons-vue'
 
 const uiStore = useUIStore()
 const bookStore = useBookStore()
@@ -15,11 +29,11 @@ const router = useRouter()
 const viewWrapperRef = ref<HTMLElement | null>(null)
 
 const navItems = [
-  { name: 'Home', label: '书籍列表', icon: '📚', path: '/' },
-  { name: 'BatchImport', label: '批量导入', icon: '📦', path: '/batch-import' },
-  { name: 'TagManagement', label: '标签管理', icon: '🏷️', path: '/tags' },
-  { name: 'Statistics', label: '统计分析', icon: '📊', path: '/statistics' },
-  { name: 'Settings', label: '设置', icon: '⚙️', path: '/settings' }
+  { name: 'Home', label: '书籍列表', icon: Collection, path: '/' },
+  { name: 'BatchImport', label: '批量导入', icon: Box, path: '/batch-import' },
+  { name: 'TagManagement', label: '标签管理', icon: PriceTag, path: '/tags' },
+  { name: 'Statistics', label: '统计分析', icon: DataAnalysis, path: '/statistics' },
+  { name: 'Settings', label: '设置', icon: Setting, path: '/settings' }
 ]
 
 const activeRoute = computed(() => route.name)
@@ -136,7 +150,7 @@ onUnmounted(() => {
           :class="{ active: isNavItemActive(item.name) }"
           @click="item.name === 'Home' ? handleHomeClick() : undefined"
         >
-          <span class="icon">{{ item.icon }}</span>
+          <el-icon class="icon"><component :is="item.icon" /></el-icon>
           <span class="label">{{ item.label }}</span>
         </RouterLink>
 
@@ -146,9 +160,9 @@ onUnmounted(() => {
             class="nav-link bookshelf-header"
             @click="bookshelfExpanded = !bookshelfExpanded"
           >
-            <span class="icon">📖</span>
+            <el-icon class="icon"><Reading /></el-icon>
             <span class="label">自定义书架</span>
-            <span class="expand-icon" :class="{ expanded: bookshelfExpanded }">▼</span>
+            <el-icon class="expand-icon" :class="{ expanded: bookshelfExpanded }"><ArrowDown /></el-icon>
           </button>
           <Transition name="bookshelf-list">
             <div v-if="bookshelfExpanded" class="bookshelf-list">
@@ -159,14 +173,14 @@ onUnmounted(() => {
                 :class="{ active: activeRoute === 'Home' && currentBookshelfId === bookshelf.id }"
                 @click="handleBookshelfClick(bookshelf.id)"
               >
-                <span class="bookshelf-icon">📚</span>
+                <el-icon class="bookshelf-icon"><Collection /></el-icon>
                 <span class="bookshelf-name">{{ bookshelf.name }}</span>
               </button>
               <button
                 class="bookshelf-item create-bookshelf"
                 @click="openBookshelfDialog(null)"
               >
-                <span class="bookshelf-icon">➕</span>
+                <el-icon class="bookshelf-icon"><Plus /></el-icon>
                 <span class="bookshelf-name">创建书架</span>
               </button>
             </div>
@@ -186,7 +200,7 @@ onUnmounted(() => {
       type="button"
       @click="uiStore.toggleSidebar"
     >
-      <span class="icon">☰</span>
+      <el-icon class="icon"><Menu /></el-icon>
       <span>展开菜单</span>
     </button>
 
@@ -194,13 +208,13 @@ onUnmounted(() => {
       <header class="topbar">
         <div class="topbar-left">
           <button class="ghost-btn mobile-only" type="button" @click="uiStore.toggleSidebar">
-            {{ uiStore.sidebarCollapsed ? '☰' : '✕' }}
+            <el-icon><component :is="uiStore.sidebarCollapsed ? Menu : Close" /></el-icon>
           </button>
           <h1>阅读记录</h1>
         </div>
         <div class="topbar-actions">
           <button class="ghost-btn" type="button" :title="themeLabel" @click="uiStore.toggleTheme">
-            {{ uiStore.theme === 'dark' ? '🌙' : '☀️' }}
+            <el-icon><component :is="uiStore.theme === 'dark' ? Moon : Sunny" /></el-icon>
           </button>
         </div>
       </header>
@@ -310,6 +324,8 @@ onUnmounted(() => {
 .nav-link .icon {
   margin-right: 10px;
   font-size: 16px;
+  display: flex;
+  align-items: center;
 }
 
 .nav-link.active {
@@ -333,6 +349,8 @@ onUnmounted(() => {
   font-size: 10px;
   transition: transform 0.2s ease;
   color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
 }
 
 .expand-icon.expanded {
@@ -386,6 +404,8 @@ onUnmounted(() => {
 .bookshelf-icon {
   margin-right: 8px;
   font-size: 14px;
+  display: flex;
+  align-items: center;
 }
 
 .bookshelf-name {
@@ -473,6 +493,13 @@ onUnmounted(() => {
 
 .sidebar-toggle .icon {
   font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.topbar-actions .el-icon,
+.topbar-left .el-icon {
+  font-size: 18px;
 }
 
 .workspace {

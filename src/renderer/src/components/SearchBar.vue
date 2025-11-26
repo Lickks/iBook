@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount } from 'vue'
+import { Search } from '@element-plus/icons-vue'
 import { useBookStore } from '../stores/book'
 
 const props = withDefaults(
@@ -54,7 +55,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="search-bar">
-    <span class="icon">🔍</span>
+    <el-icon class="icon"><Search /></el-icon>
     <input
       v-model="keyword"
       type="text"
@@ -88,6 +89,9 @@ onBeforeUnmount(() => {
 .icon {
   font-size: 18px;
   opacity: 0.8;
+  display: flex;
+  align-items: center;
+  color: var(--color-text-secondary);
 }
 
 .search-input {
