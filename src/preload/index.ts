@@ -119,6 +119,33 @@ const api = {
       ipcRenderer.invoke('bookshelf:getStats', bookshelfId),
     getByBookId: (bookId: number): Promise<ApiResponse> =>
       ipcRenderer.invoke('bookshelf:getByBookId', bookId)
+  },
+
+  // 备份操作
+  backup: {
+    create: (savePath?: string): Promise<ApiResponse<{ path?: string }>> =>
+      ipcRenderer.invoke('backup:create', savePath),
+    restore: (backupPath?: string): Promise<ApiResponse> =>
+      ipcRenderer.invoke('backup:restore', backupPath),
+    validate: (backupPath: string): Promise<ApiResponse<{ valid: boolean; metadata?: any; error?: string }>> =>
+      ipcRenderer.invoke('backup:validate', backupPath),
+    getInfo: (backupPath: string): Promise<ApiResponse> =>
+      ipcRenderer.invoke('backup:getInfo', backupPath),
+    onProgress: (callback: (progress: any) => void): (() => void) => {
+      const handler = (_event: any, progress: any) => callback(progress)
+      ipcRenderer.on('backup:progress', handler)
+      return () => ipcRenderer.removeListener('backup:progress', handler)
+    },
+    onRestoreProgress: (callback: (progress: any) => void): (() => void) => {
+      const handler = (_event: any, progress: any) => callback(progress)
+      ipcRenderer.on('backup:restore-progress', handler)
+      return () => ipcRenderer.removeListener('backup:restore-progress', handler)
+    },
+    onRestoreComplete: (callback: () => void): (() => void) => {
+      const handler = () => callback()
+      ipcRenderer.on('backup:restore-complete', handler)
+      return () => ipcRenderer.removeListener('backup:restore-complete', handler)
+    }
   }
 }
 

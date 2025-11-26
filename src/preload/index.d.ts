@@ -69,6 +69,15 @@ declare global {
         getStats: (bookshelfId: number) => Promise<ApiResponse>
         getByBookId: (bookId: number) => Promise<ApiResponse>
       }
+      backup: {
+        create: (savePath?: string) => Promise<ApiResponse<{ path?: string }>>
+        restore: (backupPath?: string) => Promise<ApiResponse>
+        validate: (backupPath: string) => Promise<ApiResponse<{ valid: boolean; metadata?: any; error?: string }>>
+        getInfo: (backupPath: string) => Promise<ApiResponse>
+        onProgress: (callback: (progress: any) => void) => () => void
+        onRestoreProgress: (callback: (progress: any) => void) => () => void
+        onRestoreComplete: (callback: () => void) => () => void
+      }
     }
   }
 }
