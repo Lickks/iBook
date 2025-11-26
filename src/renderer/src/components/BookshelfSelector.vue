@@ -90,13 +90,16 @@ function handleBookshelfChange(bookshelfId: number | null): void {
 }
 
 .custom-select-wrapper::after {
-  content: '▼';
+  content: '';
   position: absolute;
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 10px;
-  color: var(--color-text-secondary);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--color-text-secondary);
   pointer-events: none;
   transition: all 0.2s ease;
 }

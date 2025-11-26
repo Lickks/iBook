@@ -10,7 +10,7 @@
         :title="option.label"
         @click="handleThemeChange(option.value)"
       >
-        <span class="theme-icon">{{ option.icon }}</span>
+        <el-icon class="theme-icon"><component :is="option.icon" /></el-icon>
         <span class="theme-label">{{ option.label }}</span>
       </button>
     </div>
@@ -18,13 +18,14 @@
 </template>
 
 <script setup lang="ts">
+import { Sunny, Moon } from '@element-plus/icons-vue'
 import { useUIStore } from '../stores/ui'
 
 const uiStore = useUIStore()
 
 const themeOptions = [
-  { value: 'light', label: '明亮', icon: '☀️' },
-  { value: 'dark', label: '暗黑', icon: '🌙' }
+  { value: 'light', label: '明亮', icon: Sunny },
+  { value: 'dark', label: '暗黑', icon: Moon }
 ]
 
 function handleThemeChange(theme: 'light' | 'dark'): void {
@@ -76,6 +77,8 @@ function handleThemeChange(theme: 'light' | 'dark'): void {
 .theme-icon {
   font-size: 18px;
   line-height: 1;
+  display: flex;
+  align-items: center;
 }
 
 .theme-label {

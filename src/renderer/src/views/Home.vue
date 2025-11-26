@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { PriceTag, Collection, Minus, Delete } from '@element-plus/icons-vue'
 import { useBookStore } from '../stores/book'
 import { useUIStore } from '../stores/ui'
 import { READING_STATUS_LABEL } from '../constants'
@@ -326,11 +327,11 @@ async function handleRemoveFromBookshelf(): Promise<void> {
           </select>
         </div>
         <button class="batch-action-btn batch-tag-btn" type="button" @click="openBatchTagDialog">
-          <span class="icon">🏷️</span>
+          <el-icon class="icon"><PriceTag /></el-icon>
           <span>批量添加标签</span>
         </button>
         <button class="batch-action-btn batch-bookshelf-btn" type="button" @click="openAddToBookshelfDialog">
-          <span class="icon">📚</span>
+          <el-icon class="icon"><Collection /></el-icon>
           <span>添加到书架</span>
         </button>
         <button
@@ -339,11 +340,11 @@ async function handleRemoveFromBookshelf(): Promise<void> {
           type="button"
           @click="handleRemoveFromBookshelf"
         >
-          <span class="icon">➖</span>
+          <el-icon class="icon"><Minus /></el-icon>
           <span>从书架移除</span>
         </button>
         <button class="batch-action-btn batch-delete-btn" type="button" @click="handleBatchDelete">
-          <span class="icon">🗑️</span>
+          <el-icon class="icon"><Delete /></el-icon>
           <span>批量删除</span>
         </button>
       </div>
@@ -709,6 +710,8 @@ async function handleRemoveFromBookshelf(): Promise<void> {
 
 .batch-action-btn .icon {
   font-size: 16px;
+  display: flex;
+  align-items: center;
 }
 
 .dialog-overlay {
@@ -912,13 +915,16 @@ async function handleRemoveFromBookshelf(): Promise<void> {
 }
 
 .custom-select-wrapper::after {
-  content: '▼';
+  content: '';
   position: absolute;
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 10px;
-  color: var(--color-text-secondary);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--color-text-secondary);
   pointer-events: none;
   transition: all 0.2s ease;
 }

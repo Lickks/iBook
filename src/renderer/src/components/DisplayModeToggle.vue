@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Document, Collection } from '@element-plus/icons-vue'
 import { useDisplayModeStore } from '../stores/displayMode'
 
 const displayModeStore = useDisplayModeStore()
@@ -15,7 +16,7 @@ function toggleMode() {
       :class="{ active: displayModeStore.isSimpleMode }"
       @click="toggleMode"
     >
-      <span class="icon">📋</span>
+      <el-icon class="icon"><Document /></el-icon>
       <span>简约</span>
     </button>
     <button
@@ -23,7 +24,7 @@ function toggleMode() {
       :class="{ active: displayModeStore.isClassicMode }"
       @click="toggleMode"
     >
-      <span class="icon">📚</span>
+      <el-icon class="icon"><Collection /></el-icon>
       <span>经典</span>
     </button>
   </div>
@@ -66,6 +67,8 @@ function toggleMode() {
 
 .icon {
   font-size: 14px;
+  display: flex;
+  align-items: center;
 }
 
 @media (max-width: 640px) {

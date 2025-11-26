@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, Edit } from '@element-plus/icons-vue'
 import { useTagStore } from '../stores/tag'
 import { DEFAULT_TAG_COLORS } from '../constants'
 import type { Tag, TagInput } from '../types'
@@ -221,7 +222,7 @@ function getTagStyle(tag: Tag): Record<string, string> {
               title="编辑"
               @click="openEditDialog(tag)"
             >
-              ✏️
+              <el-icon><Edit /></el-icon>
             </button>
             <button
               class="action-btn delete-btn"
@@ -229,7 +230,7 @@ function getTagStyle(tag: Tag): Record<string, string> {
               title="删除"
               @click="handleDelete(tag)"
             >
-              🗑️
+              <el-icon><Delete /></el-icon>
             </button>
           </div>
         </div>

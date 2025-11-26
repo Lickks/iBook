@@ -37,7 +37,8 @@
                 type="button"
                 @click="displayModeStore.setDisplayMode('simple')"
               >
-                <span>📋 简约</span>
+                <el-icon style="margin-right: 6px;"><Document /></el-icon>
+                <span>简约</span>
               </button>
               <button
                 class="view-mode-btn"
@@ -45,7 +46,8 @@
                 type="button"
                 @click="displayModeStore.setDisplayMode('classic')"
               >
-                <span>📚 经典</span>
+                <el-icon style="margin-right: 6px;"><Collection /></el-icon>
+                <span>经典</span>
               </button>
             </div>
           </div>
@@ -61,6 +63,7 @@
                 type="button"
                 @click="uiStore.setViewMode('grid')"
               >
+                <el-icon><Grid /></el-icon>
                 <span>网格视图</span>
               </button>
               <button
@@ -69,6 +72,7 @@
                 type="button"
                 @click="uiStore.setViewMode('list')"
               >
+                <el-icon><List /></el-icon>
                 <span>列表视图</span>
               </button>
             </div>
@@ -78,55 +82,64 @@
 
       <section class="settings-section">
         <h2 class="section-title">数据管理</h2>
-        <div class="section-content">
-          <div class="setting-item">
-            <div class="setting-label">
-              <span class="label-text">备份数据</span>
-              <span class="label-desc">备份所有书籍、文档、封面和设置到本地文件</span>
+        <div class="data-management-grid">
+          <div class="data-card backup-card">
+            <div class="data-card-header">
+              <div class="data-card-icon backup-icon">
+                <el-icon><Download /></el-icon>
+              </div>
+              <div class="data-card-info">
+                <h3 class="data-card-title">备份数据</h3>
+                <p class="data-card-desc">备份所有书籍、文档、封面和设置到本地文件</p>
+              </div>
             </div>
-            <div class="setting-control">
+            <div class="data-card-body">
               <button
-                class="backup-btn"
+                class="data-action-btn backup-action-btn"
                 type="button"
                 :disabled="backupLoading"
                 @click="handleBackup"
               >
+                <el-icon><Download /></el-icon>
                 <span v-if="!backupLoading">创建备份</span>
                 <span v-else>备份中...</span>
               </button>
-            </div>
-            <div v-if="backupProgress !== null" class="progress-container">
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: `${backupProgress.progress}%` }"></div>
+              <div v-if="backupProgress !== null" class="data-progress">
+                <div class="data-progress-bar">
+                  <div class="data-progress-fill" :style="{ width: `${backupProgress.progress}%` }"></div>
+                </div>
+                <div class="data-progress-text">{{ backupProgress.message }}</div>
               </div>
-              <div class="progress-text">{{ backupProgress.message }}</div>
             </div>
           </div>
 
-          <div class="setting-item">
-            <div class="setting-label">
-              <span class="label-text">恢复数据</span>
-              <span class="label-desc">从备份文件恢复所有数据（将覆盖当前数据）</span>
+          <div class="data-card restore-card">
+            <div class="data-card-header">
+              <div class="data-card-icon restore-icon">
+                <el-icon><Upload /></el-icon>
+              </div>
+              <div class="data-card-info">
+                <h3 class="data-card-title">恢复数据</h3>
+                <p class="data-card-desc">从备份文件恢复所有数据（将覆盖当前数据）</p>
+              </div>
             </div>
-            <div class="setting-control">
+            <div class="data-card-body">
               <button
-                class="restore-btn"
+                class="data-action-btn restore-action-btn"
                 type="button"
                 :disabled="restoreLoading"
                 @click="handleRestore"
               >
+                <el-icon><Upload /></el-icon>
                 <span v-if="!restoreLoading">恢复备份</span>
                 <span v-else>恢复中...</span>
               </button>
-            </div>
-            <div v-if="restoreProgress !== null" class="progress-container">
-              <div class="progress-bar">
-                <div
-                  class="progress-fill"
-                  :style="{ width: `${restoreProgress.progress}%` }"
-                ></div>
+              <div v-if="restoreProgress !== null" class="data-progress">
+                <div class="data-progress-bar">
+                  <div class="data-progress-fill restore-progress-fill" :style="{ width: `${restoreProgress.progress}%` }"></div>
+                </div>
+                <div class="data-progress-text">{{ restoreProgress.message }}</div>
               </div>
-              <div class="progress-text">{{ restoreProgress.message }}</div>
             </div>
           </div>
         </div>
@@ -139,6 +152,7 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Document, Collection, Download, Upload, Grid, List } from '@element-plus/icons-vue'
 import { useUIStore } from '../stores/ui'
 import { useDisplayModeStore } from '../stores/displayMode'
 import { useBookStore } from '../stores/book'
@@ -323,66 +337,101 @@ async function handleRestore() {
 .settings-page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
 }
 
 .settings-content {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
 }
 
 .settings-section {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 16px;
-  padding: 24px;
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.settings-section:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
 }
 
 .section-title {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--color-text-primary);
-  margin: 0 0 20px 0;
+  margin: 0 0 28px 0;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--color-border);
+  position: relative;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 60px;
+  height: 2px;
+  background: var(--color-accent);
+  border-radius: 2px;
 }
 
 .section-content {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
 }
 
 .setting-item {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  padding: 20px;
+  background: var(--color-bg-soft);
+  border-radius: 16px;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.setting-item:hover {
+  background: var(--color-bg-muted);
+  border-color: var(--color-border);
 }
 
 .setting-label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .label-text {
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--color-text-primary);
+  letter-spacing: -0.01em;
 }
 
 .label-desc {
   font-size: 13px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
 }
 
 .setting-control {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .view-mode-btn {
   flex: 1;
-  padding: 12px 16px;
+  min-width: 140px;
+  padding: 14px 20px;
   border: 2px solid var(--color-border);
   border-radius: 12px;
   background: var(--color-surface);
@@ -391,79 +440,242 @@ async function handleRestore() {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.view-mode-btn .el-icon {
+  font-size: 16px;
 }
 
 .view-mode-btn:hover {
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
   color: var(--color-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .view-mode-btn.active {
   border-color: var(--color-accent);
-  background: var(--color-accent-soft);
+  background: linear-gradient(135deg, var(--color-accent-soft) 0%, rgba(99, 102, 241, 0.15) 100%);
   color: var(--color-accent);
   font-weight: 600;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
 }
 
-.backup-btn,
-.restore-btn {
-  padding: 12px 24px;
+/* 数据管理网格布局 */
+.data-management-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.data-card {
+  background: var(--color-bg-soft);
   border: 2px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface);
+  border-radius: 16px;
+  padding: 24px;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.data-card:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-4px);
+}
+
+.backup-card {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(99, 102, 241, 0.02) 100%);
+}
+
+.restore-card {
+  background: linear-gradient(135deg, rgba(230, 162, 60, 0.05) 0%, rgba(230, 162, 60, 0.02) 100%);
+}
+
+.data-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.data-card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 24px;
+}
+
+.backup-icon {
+  background: linear-gradient(135deg, var(--color-accent) 0%, rgba(99, 102, 241, 0.8) 100%);
+  color: white;
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+}
+
+.restore-icon {
+  background: linear-gradient(135deg, #e6a23c 0%, rgba(230, 162, 60, 0.8) 100%);
+  color: white;
+  box-shadow: 0 4px 16px rgba(230, 162, 60, 0.3);
+}
+
+.data-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.data-card-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 6px 0;
+  letter-spacing: -0.01em;
+}
+
+.data-card-desc {
+  font-size: 13px;
   color: var(--color-text-secondary);
-  font-size: 14px;
-  font-weight: 500;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.data-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.data-action-btn {
+  width: 100%;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.backup-btn:hover:not(:disabled) {
-  border-color: var(--color-accent);
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
+.data-action-btn .el-icon {
+  font-size: 18px;
 }
 
-.restore-btn {
-  border-color: var(--color-warning);
-  color: var(--color-warning);
+.backup-action-btn {
+  background: linear-gradient(135deg, var(--color-accent) 0%, rgba(99, 102, 241, 0.9) 100%);
+  color: white;
 }
 
-.restore-btn:hover:not(:disabled) {
-  background: var(--color-warning-soft);
-  border-color: var(--color-warning);
+.backup-action-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.95) 0%, var(--color-accent) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
 }
 
-.backup-btn:disabled,
-.restore-btn:disabled {
+.restore-action-btn {
+  background: linear-gradient(135deg, #e6a23c 0%, rgba(230, 162, 60, 0.9) 100%);
+  color: white;
+}
+
+.restore-action-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(230, 162, 60, 0.95) 0%, #e6a23c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(230, 162, 60, 0.4);
+}
+
+.data-action-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
-.progress-container {
-  margin-top: 12px;
+.data-progress {
+  margin-top: 4px;
+  padding: 16px;
+  background: var(--color-surface);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
 }
 
-.progress-bar {
+.data-progress-bar {
   width: 100%;
-  height: 8px;
-  background: var(--color-border);
-  border-radius: 4px;
+  height: 10px;
+  background: var(--color-bg-muted);
+  border-radius: 8px;
   overflow: hidden;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
-.progress-fill {
+.data-progress-fill {
   height: 100%;
-  background: var(--color-accent);
+  background: linear-gradient(90deg, var(--color-accent) 0%, rgba(99, 102, 241, 0.8) 100%);
   transition: width 0.3s ease;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
-.progress-text {
-  font-size: 12px;
-  color: var(--color-text-tertiary);
+.restore-progress-fill {
+  background: linear-gradient(90deg, #e6a23c 0%, rgba(230, 162, 60, 0.8) 100%);
+  box-shadow: 0 2px 8px rgba(230, 162, 60, 0.3);
+}
+
+.data-progress-text {
+  font-size: 13px;
+  color: var(--color-text-secondary);
   text-align: center;
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .settings-section {
+    padding: 20px;
+  }
+
+  .section-content {
+    gap: 24px;
+  }
+
+  .setting-item {
+    padding: 16px;
+  }
+
+  .view-mode-btn {
+    min-width: auto;
+    flex: 1;
+  }
+
+  .data-management-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .data-card {
+    padding: 20px;
+  }
+
+  .data-card-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+  }
+
+  .data-card-title {
+    font-size: 16px;
+  }
 }
 </style>
 
