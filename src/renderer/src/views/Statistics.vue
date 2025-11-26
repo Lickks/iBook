@@ -95,7 +95,7 @@
       <div class="charts-section">
         <!-- 阅读状态分布 -->
         <div class="charts-row">
-          <div class="chart-card chart-full">
+          <div class="chart-card chart-full" data-chart-index="0">
             <h3>阅读状态分布</h3>
             <div ref="statusChartRef" class="chart"></div>
           </div>
@@ -103,7 +103,7 @@
 
         <!-- 类型分布 -->
         <div class="charts-row">
-          <div class="chart-card chart-full">
+          <div class="chart-card chart-full" data-chart-index="1">
             <h3>类型分布</h3>
             <div ref="categoryChartRef" class="chart"></div>
           </div>
@@ -111,7 +111,7 @@
 
         <!-- 平台分布 -->
         <div class="charts-row">
-          <div class="chart-card chart-full">
+          <div class="chart-card chart-full" data-chart-index="2">
             <h3>平台分布</h3>
             <div ref="platformChartRef" class="chart"></div>
           </div>
@@ -119,7 +119,7 @@
 
         <!-- 字数分布 -->
         <div class="charts-row">
-          <div class="chart-card chart-full">
+          <div class="chart-card chart-full" data-chart-index="3">
             <h3>字数分布</h3>
             <div ref="wordCountChartRef" class="chart"></div>
           </div>
@@ -138,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUIStore } from '../stores/ui'
 import { useBookshelfStore } from '../stores/bookshelf'
@@ -206,6 +206,39 @@ let statusChartInstance: any = null
 let categoryChartInstance: any = null
 let platformChartInstance: any = null
 let wordCountChartInstance: any = null
+const chartResizeObservers: Record<'status' | 'category' | 'platform' | 'wordCount', ResizeObserver | null> = {
+  status: null,
+  category: null,
+  platform: null,
+  wordCount: null
+}
+const barAnimation = {
+  animation: true,
+  animationDuration: 600,
+  animationEasing: 'cubicOut',
+  animationDelay: (idx: number) => idx * 60
+}
+
+const resizeAllCharts = () => {
+  statusChartInstance?.resize()
+  categoryChartInstance?.resize()
+  platformChartInstance?.resize()
+  wordCountChartInstance?.resize()
+}
+
+const observeChartResize = (
+  key: keyof typeof chartResizeObservers,
+  el: HTMLDivElement | undefined,
+  instance: any
+) => {
+  if (!el || !instance || !window.ResizeObserver) return
+  chartResizeObservers[key]?.disconnect()
+  const observer = new ResizeObserver(() => {
+    instance.resize()
+  })
+  chartResizeObservers[key] = observer
+  observer.observe(el)
+}
 
 // 格式化数字显示
 const formatNumber = (num: number) => {
@@ -307,12 +340,15 @@ const createStatusChart = () => {
               position: 'right',
               formatter: '{c}',
               color: uiStore.theme === 'dark' ? '#E5E7EB' : '#374151'
-            }
+            },
+            ...barAnimation
           }
         ]
       }
 
       statusChartInstance.setOption(option)
+      statusChartInstance.resize()
+      observeChartResize('status', statusChartRef.value, statusChartInstance)
     })
   } catch (error) {
     console.error('阅读状态图表创建失败:', error)
@@ -409,12 +445,15 @@ const createCategoryChart = () => {
               position: 'right',
               formatter: '{c}',
               color: uiStore.theme === 'dark' ? '#E5E7EB' : '#374151'
-            }
+            },
+            ...barAnimation
           }
         ]
       }
 
       categoryChartInstance.setOption(option)
+      categoryChartInstance.resize()
+      observeChartResize('category', categoryChartRef.value, categoryChartInstance)
     })
   } catch (error) {
     console.error('类型分布图表创建失败:', error)
@@ -511,12 +550,15 @@ const createPlatformChart = () => {
               position: 'right',
               formatter: '{c}',
               color: uiStore.theme === 'dark' ? '#E5E7EB' : '#374151'
-            }
+            },
+            ...barAnimation
           }
         ]
       }
 
       platformChartInstance.setOption(option)
+      platformChartInstance.resize()
+      observeChartResize('platform', platformChartRef.value, platformChartInstance)
     })
   } catch (error) {
     console.error('平台分布图表创建失败:', error)
@@ -572,12 +614,15 @@ const createWordCountChart = () => {
               itemStyle: {
                 color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'][index % 6]
               }
-            }))
+            })),
+            ...barAnimation
           }
         ]
       }
 
       wordCountChartInstance.setOption(option)
+      wordCountChartInstance.resize()
+      observeChartResize('wordCount', wordCountChartRef.value, wordCountChartInstance)
     })
   } catch (error) {
     console.error('字数分布图表创建失败:', error)
@@ -641,6 +686,11 @@ const refreshData = () => {
     wordCountChartInstance.dispose()
     wordCountChartInstance = null
   }
+  Object.keys(chartResizeObservers).forEach((key) => {
+    const observer = chartResizeObservers[key as keyof typeof chartResizeObservers]
+    observer?.disconnect()
+    chartResizeObservers[key as keyof typeof chartResizeObservers] = null
+  })
   fetchData()
   ElMessage.success('数据已刷新')
 }
@@ -664,6 +714,7 @@ watch(() => uiStore.theme, () => {
 
 onMounted(async () => {
   console.log('统计分析页面加载')
+  window.addEventListener('resize', resizeAllCharts)
   // 获取书架列表
   try {
     await bookshelfStore.fetchBookshelves()
@@ -673,6 +724,15 @@ onMounted(async () => {
   }
   // 默认选择"全部书籍"（selectedBookshelfId 已经是 null）
   fetchData()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', resizeAllCharts)
+  Object.keys(chartResizeObservers).forEach((key) => {
+    const observer = chartResizeObservers[key as keyof typeof chartResizeObservers]
+    observer?.disconnect()
+    chartResizeObservers[key as keyof typeof chartResizeObservers] = null
+  })
 })
 </script>
 
@@ -828,6 +888,40 @@ onMounted(async () => {
   box-shadow: 0 1px 3px 0 var(--color-card-shadow);
   border: 1px solid var(--color-border);
   transition: all 0.2s;
+  animation: stat-card-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.stat-card:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stat-card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.stat-card:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.stat-card:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.stat-card:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+@keyframes stat-card-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .stat-card:hover {
@@ -868,6 +962,36 @@ onMounted(async () => {
   padding: 24px;
   box-shadow: 0 1px 3px 0 var(--color-card-shadow);
   border: 1px solid var(--color-border);
+  animation: chart-card-expand 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+}
+
+.chart-card[data-chart-index="0"] {
+  animation-delay: 0.1s;
+}
+
+.chart-card[data-chart-index="1"] {
+  animation-delay: 0.2s;
+}
+
+.chart-card[data-chart-index="2"] {
+  animation-delay: 0.3s;
+}
+
+.chart-card[data-chart-index="3"] {
+  animation-delay: 0.4s;
+}
+
+@keyframes chart-card-expand {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .chart-card h3 {
@@ -883,6 +1007,9 @@ onMounted(async () => {
   max-height: 500px;
   overflow-y: auto;
   overflow-x: hidden;
+  animation: chart-expand 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top;
+  opacity: 0;
 }
 
 .chart::-webkit-scrollbar {
@@ -901,6 +1028,34 @@ onMounted(async () => {
 
 .chart::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-secondary, #9ca3af);
+}
+
+@keyframes chart-expand {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+/* 图表卡片动画延迟继承 */
+.chart-card[data-chart-index="0"] .chart {
+  animation-delay: 0.3s;
+}
+
+.chart-card[data-chart-index="1"] .chart {
+  animation-delay: 0.4s;
+}
+
+.chart-card[data-chart-index="2"] .chart {
+  animation-delay: 0.5s;
+}
+
+.chart-card[data-chart-index="3"] .chart {
+  animation-delay: 0.6s;
 }
 
 .charts-row {

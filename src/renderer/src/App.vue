@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { computed, onMounted, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useUIStore } from './stores/ui'
 import { useBookStore } from './stores/book'
 import { useBookshelfStore } from './stores/bookshelf'
@@ -12,6 +11,8 @@ const bookStore = useBookStore()
 const bookshelfStore = useBookshelfStore()
 const route = useRoute()
 const router = useRouter()
+
+const viewWrapperRef = ref<HTMLElement | null>(null)
 
 const navItems = [
   { name: 'Home', label: '书籍列表', icon: '📚', path: '/' },
@@ -112,6 +113,10 @@ onMounted(() => {
   ensureBooksLoaded()
   ensureBookshelvesLoaded()
 })
+
+onUnmounted(() => {
+  // 清理逻辑
+})
 </script>
 
 <template>
@@ -200,7 +205,7 @@ onMounted(() => {
         </div>
       </header>
 
-      <main class="view-wrapper">
+      <main ref="viewWrapperRef" class="view-wrapper">
         <RouterView v-slot="{ Component, route }">
           <Transition name="fade" mode="out-in">
             <component :is="Component" :key="route.path" />
@@ -485,6 +490,9 @@ onMounted(() => {
   border-bottom: 1px solid var(--color-border);
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(20px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .dark .topbar {
