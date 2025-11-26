@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, ElSelect, ElOption } from 'element-plus'
 import type { SearchResult, BookInput, Book } from '../types'
-import { batchSearchYoushu, downloadCover, fetchYoushuDetail, searchYoushu } from '../api/search'
+import { downloadCover, fetchYoushuDetail, searchYoushu } from '../api/search'
 import { filterTitleForSearch, normalizeTitleForComparison } from '../utils'
 import * as bookAPI from '../api/book'
 
@@ -52,7 +52,11 @@ interface PreviewItem {
   selected: boolean
   loading?: boolean
   customSearchResult?: SearchResult | null
+  coverSource?: 'auto' | 'ebook' | 'network'
 }
+
+// 全局封面选择设置（仅在文件上传模式下生效）
+const globalCoverSource = ref<'network' | 'ebook'>('network')
 
 // 确保所有预览项都有 customSearchResult 属性
 function ensurePreviewItem(item: Partial<PreviewItem>): PreviewItem {
@@ -67,7 +71,8 @@ function ensurePreviewItem(item: Partial<PreviewItem>): PreviewItem {
     searchError: item.searchError,
     selected: item.selected ?? true,
     loading: item.loading ?? false,
-    customSearchResult: item.customSearchResult ?? null
+    customSearchResult: item.customSearchResult ?? null,
+    coverSource: item.coverSource ?? 'auto'
   }
 }
 
@@ -89,6 +94,60 @@ const isIndeterminate = computed(() => {
 
 // 只选择检索成功的选项
 const onlySelectSuccess = ref(true)
+
+// 获取实际显示的封面URL
+function getDisplayCover(item: PreviewItem): string | null {
+  const hasEbook = !!item.ebookCover
+  const hasNetwork = !!(item.searchResult?.cover)
+
+  if (!hasEbook && !hasNetwork) return null
+
+  // 确定封面来源优先级
+  let source: 'ebook' | 'network'
+
+  if (item.coverSource && item.coverSource !== 'auto') {
+    // 单本书有明确选择
+    source = item.coverSource
+  } else {
+    // 使用全局设置
+    source = globalCoverSource.value
+  }
+
+  // 根据来源返回封面，如果指定来源没有则使用另一个
+  if (source === 'ebook') {
+    return item.ebookCover || (item.searchResult?.cover ?? null)
+  } else {
+    return (item.searchResult?.cover ?? null) || item.ebookCover || null
+  }
+}
+
+// 获取实际用于导入的封面URL（考虑下载的封面）
+function getImportCover(item: PreviewItem, coverMap: Map<PreviewItem, string>): string | undefined {
+  const hasEbook = !!item.ebookCover
+  const hasNetwork = !!(item.searchResult?.cover)
+
+  if (!hasEbook && !hasNetwork) return undefined
+
+  // 确定封面来源优先级
+  let source: 'ebook' | 'network'
+
+  if (item.coverSource && item.coverSource !== 'auto') {
+    // 单本书有明确选择
+    source = item.coverSource
+  } else {
+    // 使用全局设置
+    source = globalCoverSource.value
+  }
+
+  // 根据来源返回封面，如果指定来源没有则使用另一个
+  if (source === 'ebook') {
+    return item.ebookCover || coverMap.get(item) || item.searchResult?.cover || undefined
+  } else {
+    // 网络封面优先使用已下载的，其次使用原始URL
+    const networkCover = coverMap.get(item) || item.searchResult?.cover
+    return networkCover || item.ebookCover || undefined
+  }
+}
 
 // 检索成功/失败统计
 const searchStats = computed(() => {
@@ -127,6 +186,18 @@ watch(
     }
   },
   { deep: true }
+)
+
+// 监听预览界面显示，滚动到页面顶部
+watch(
+  showPreview,
+  (newValue) => {
+    if (newValue) {
+      nextTick(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+    }
+  }
 )
 
 // 选择文件
@@ -235,15 +306,15 @@ async function handleStartSearch(): Promise<void> {
   }
 }
 
-// 执行批量搜索
+// 执行批量搜索（实时更新）
 async function performBatchSearch(): Promise<void> {
   isSearching.value = true
 
   try {
-    const keywords = previewItems.value.map((item) => item.searchKeyword)
+    const items = previewItems.value.filter((item) => item.searchKeyword)
 
     // 检查是否有有效的搜索关键词
-    if (keywords.length === 0) {
+    if (items.length === 0) {
       ElMessage.warning('没有有效的搜索关键词')
       // 标记所有项为失败
       previewItems.value.forEach((item) => {
@@ -254,103 +325,90 @@ async function performBatchSearch(): Promise<void> {
     }
 
     // 初始化所有项为加载状态
-    previewItems.value.forEach((item) => {
+    items.forEach((item) => {
       item.loading = true
       item.searchResult = undefined
       item.searchError = undefined
     })
 
-    // 真正使用批量搜索：一次性搜索所有关键词
-    // 批量搜索API内部已经有并发控制（15个并发），这里不需要再控制
-    try {
-      const results = await batchSearchYoushu(keywords)
+    // 并发控制：同时最多5个请求，在速度和避免429之间平衡
+    const concurrency = 8
+    // 请求间隔：启动新请求前延迟300ms，控制请求频率
+    const requestDelay = 300
+    const executing: Promise<void>[] = []
+    let lastRequestTime = 0
 
-      // 验证结果数量
-      if (!results || results.length === 0) {
-        console.error('批量搜索返回空结果')
-        previewItems.value.forEach((item) => {
-          item.loading = false
-          item.searchError = '批量搜索返回空结果'
-        })
-        return
-      }
+    // 为每个预览项创建搜索任务
+    for (const item of items) {
+      const task = async () => {
+        try {
+          const keyword = item.searchKeyword
+          if (!keyword || !keyword.trim()) {
+            item.loading = false
+            item.searchError = '搜索关键词为空'
+            return
+          }
 
-      // 创建一个映射，根据 keyword 快速查找对应的预览项
-      // 注意：批量搜索API返回的 keyword 是经过 trim 的原始关键词
-      // 而 item.searchKeyword 是经过 filterTitleForSearch 处理后的关键词
-      // 所以我们需要同时匹配原始关键词和处理后的关键词
-      const itemMap = new Map<string, PreviewItem>()
-      const originalKeywordMap = new Map<string, PreviewItem>()
+          const results = await searchYoushu(keyword.trim())
 
-      previewItems.value.forEach((item, index) => {
-        // 使用处理后的关键词作为主键
-        itemMap.set(item.searchKeyword, item)
-        // 同时使用原始关键词（trimmed）作为备用键
-        const originalKeyword = keywords[index]?.trim()
-        if (originalKeyword) {
-          originalKeywordMap.set(originalKeyword, item)
-        }
-      })
-
-      // 根据结果更新对应的预览项（使用 keyword 匹配）
-      results.forEach((result) => {
-        if (!result || !result.keyword) {
-          console.warn('批量搜索结果缺少 keyword 字段:', result)
-          return
-        }
-
-        // 先尝试用 result.keyword 匹配（这是 trim 后的原始关键词）
-        let item = originalKeywordMap.get(result.keyword.trim())
-
-        // 如果没找到，尝试用处理后的关键词匹配
-        if (!item) {
-          item = itemMap.get(result.keyword.trim())
-        }
-
-        // 如果还是没找到，尝试在所有预览项中查找匹配的 searchKeyword
-        if (!item) {
-          item = previewItems.value.find(
-            (i) =>
-              i.searchKeyword === result.keyword.trim() || i.originalTitle === result.keyword.trim()
-          )
-        }
-
-        if (!item) {
-          console.warn(`未找到关键词 "${result.keyword}" 对应的预览项`)
-          return
-        }
-
-        if (result.success && result.data) {
-          item.searchResult = result.data
-          item.searchError = undefined
-        } else {
-          item.searchResult = undefined
-          item.searchError = result.error || '搜索失败'
-        }
-        item.loading = false
-      })
-
-      // 确保所有预览项都被处理（处理可能缺失的结果）
-      previewItems.value.forEach((item) => {
-        if (item.loading) {
-          // 如果还在加载状态，说明没有对应的结果
-          item.loading = false
-          if (!item.searchResult) {
+          // 实时更新预览项（立即更新，不等待其他任务）
+          if (results && results.length > 0) {
+            item.searchResult = results[0] // 取第一个结果
+            item.searchError = undefined
+          } else {
+            item.searchResult = undefined
             item.searchError = '未找到搜索结果'
           }
+          item.loading = false
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : '搜索失败'
+          item.loading = false
+          item.searchResult = undefined
+          // 检查是否是429错误
+          if (message.includes('429') || message.includes('Too Many Requests')) {
+            item.searchError = '请求过于频繁，请稍后重试'
+          } else {
+            item.searchError = message
+          }
+        }
+      }
+
+      // 控制请求频率：确保相邻请求之间至少有requestDelay间隔
+      const now = Date.now()
+      const timeSinceLastRequest = now - lastRequestTime
+      if (timeSinceLastRequest < requestDelay) {
+        await new Promise<void>((resolve) => setTimeout(resolve, requestDelay - timeSinceLastRequest))
+      }
+      lastRequestTime = Date.now()
+
+      // 创建 Promise，并在完成后从执行队列中移除
+      const promise = task().finally(() => {
+        const index = executing.indexOf(promise)
+        if (index > -1) {
+          executing.splice(index, 1)
         }
       })
-    } catch (error: any) {
-      console.error('批量搜索错误:', error)
-      ElMessage.error(error?.message || '批量搜索失败，请检查网络连接')
-      // 如果批量搜索失败，标记所有项为失败
-      previewItems.value.forEach((item) => {
+
+      executing.push(promise)
+
+      // 如果达到并发限制，等待一个任务完成
+      if (executing.length >= concurrency) {
+        await Promise.race(executing)
+      }
+    }
+
+    // 等待所有剩余任务完成
+    await Promise.all(executing)
+
+    // 所有任务完成后，检查是否还有未处理的项
+    previewItems.value.forEach((item) => {
+      if (item.loading) {
         item.loading = false
         if (!item.searchResult) {
-          item.searchError = error?.message || '搜索失败'
+          item.searchError = item.searchError || '搜索超时'
         }
-      })
-    }
+      }
+    })
   } catch (error: any) {
     console.error('批量搜索错误:', error)
     ElMessage.error(error?.message || '批量搜索失败')
@@ -358,7 +416,7 @@ async function performBatchSearch(): Promise<void> {
     previewItems.value.forEach((item) => {
       item.loading = false
       if (!item.searchResult) {
-        item.searchError = '搜索失败'
+        item.searchError = error?.message || '搜索失败'
       }
     })
   } finally {
@@ -509,8 +567,21 @@ async function handleBatchImport(): Promise<void> {
     })
 
     // 并行下载所有封面（提高速度）
+    // 根据用户选择决定需要下载的封面
     const coverPromises = selectedItems
-      .filter((item) => item.searchResult && !item.ebookCover && item.searchResult.cover)
+      .filter((item) => {
+        if (!item.searchResult?.cover) return false
+        // 判断用户选择的封面来源
+        let source: 'ebook' | 'network'
+        if (item.coverSource && item.coverSource !== 'auto') {
+          source = item.coverSource
+        } else {
+          source = globalCoverSource.value
+        }
+        // 如果选择网络封面且没有电子书封面，需要下载
+        // 或者如果选择电子书但电子书封面不存在，且有网络封面，也下载网络封面作为备选
+        return source === 'network' || !item.ebookCover
+      })
       .map(async (item) => {
         try {
           const coverUrl = await downloadCover(item.searchResult!.cover!, item.searchResult!.title)
@@ -563,11 +634,8 @@ async function handleBatchImport(): Promise<void> {
                   readingStatus: 'unread'
                 }
               } else {
-                // 使用已下载的封面或电子书封面
-                let coverUrl = item.ebookCover || coverMap.get(item) || undefined
-                if (!coverUrl && searchResult.cover) {
-                  coverUrl = searchResult.cover
-                }
+                // 根据用户选择的封面来源获取封面
+                const coverUrl = getImportCover(item, coverMap)
 
                 // 获取详细信息（包括完整的简介）
                 let platform = searchResult.platform
@@ -650,11 +718,8 @@ async function handleBatchImport(): Promise<void> {
               readingStatus: 'unread'
             }
           } else {
-            // 使用已下载的封面或电子书封面
-            let coverUrl = item.ebookCover || coverMap.get(item) || undefined
-            if (!coverUrl && searchResult.cover) {
-              coverUrl = searchResult.cover
-            }
+            // 根据用户选择的封面来源获取封面
+            const coverUrl = getImportCover(item, coverMap)
 
             // 获取详细信息（包括完整的简介）
             let platform = searchResult.platform
@@ -835,14 +900,8 @@ function handleClear(): void {
           <p class="upload-hint">支持 TXT、EPUB、PDF、MOBI、AZW、AZW3、DOC、DOCX 格式</p>
         </div>
 
-        <div v-if="selectedFiles.length > 0" class="file-list">
-          <div v-for="(file, index) in selectedFiles" :key="index" class="file-item">
-            <span class="file-name">{{ getFileName(file) }}</span>
-            <button type="button" class="remove-btn" @click="removeFile(index)">移除</button>
-          </div>
-        </div>
-
-        <div class="file-footer">
+        <!-- 操作栏移到上方 -->
+        <div v-if="selectedFiles.length > 0" class="file-action-bar">
           <span class="count">已选择 {{ selectedFiles.length }} 个文件</span>
           <button
             type="button"
@@ -852,6 +911,13 @@ function handleClear(): void {
           >
             {{ isSearching ? '处理中...' : '开始处理' }}
           </button>
+        </div>
+
+        <div v-if="selectedFiles.length > 0" class="file-list">
+          <div v-for="(file, index) in selectedFiles" :key="index" class="file-item">
+            <span class="file-name">{{ getFileName(file) }}</span>
+            <button type="button" class="remove-btn" @click="removeFile(index)">移除</button>
+          </div>
         </div>
       </div>
     </div>
@@ -892,6 +958,14 @@ function handleClear(): void {
             <input type="checkbox" v-model="onlySelectSuccess" />
             <span>只选择检索成功</span>
           </label>
+          <!-- 全局封面选择（仅文件上传模式） -->
+          <div v-if="importMode === 'files'" class="cover-select-wrapper">
+            <span class="cover-select-label">全局封面：</span>
+            <ElSelect v-model="globalCoverSource" class="cover-select" size="small">
+              <ElOption label="默认使用网络检索封面" value="network" />
+              <ElOption label="使用电子书封面" value="ebook" />
+            </ElSelect>
+          </div>
         </div>
         <span class="stats">
           共 {{ searchStats.total }} 项，
@@ -915,11 +989,27 @@ function handleClear(): void {
 
           <div class="item-cover">
             <img
-              v-if="item.ebookCover || (item.searchResult && item.searchResult.cover)"
-              :src="item.ebookCover || item.searchResult?.cover"
+              v-if="getDisplayCover(item)"
+              :src="getDisplayCover(item) || ''"
               :alt="item.originalTitle"
             />
             <span v-else>{{ item.originalTitle.slice(0, 1).toUpperCase() }}</span>
+            <!-- 单本书封面选择器（仅当同时有两种封面时显示） -->
+            <div
+              v-if="item.ebookCover && item.searchResult?.cover"
+              class="cover-selector-overlay"
+            >
+              <ElSelect
+                v-model="item.coverSource"
+                class="item-cover-select"
+                size="small"
+                @change="() => {}"
+              >
+                <ElOption label="自动" value="auto" />
+                <ElOption label="电子书" value="ebook" />
+                <ElOption label="网络" value="network" />
+              </ElSelect>
+            </div>
           </div>
 
           <div class="item-content">
@@ -1260,10 +1350,17 @@ function handleClear(): void {
   text-decoration: underline;
 }
 
-.file-footer {
+.file-footer,
+.file-action-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.file-action-bar {
+  margin-bottom: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .preview-section {
@@ -1395,6 +1492,7 @@ function handleClear(): void {
 }
 
 .item-cover {
+  position: relative;
   width: 80px;
   height: 106px;
   border-radius: 8px;
@@ -1412,6 +1510,52 @@ function handleClear(): void {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.cover-selector-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6));
+  padding: 4px;
+  backdrop-filter: blur(4px);
+}
+
+.item-cover-select {
+  width: 100%;
+}
+
+.item-cover-select :deep(.el-select__wrapper) {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+}
+
+.item-cover-select :deep(.el-select__wrapper:hover) {
+  background: rgba(255, 255, 255, 1) !important;
+}
+
+.item-cover-select :deep(.el-select__placeholder),
+.item-cover-select :deep(.el-select__selected-item) {
+  color: var(--color-text-primary) !important;
+  font-size: 11px;
+}
+
+.cover-select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cover-select-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.cover-select {
+  min-width: 160px;
 }
 
 .item-content {
@@ -1885,3 +2029,4 @@ function handleClear(): void {
   }
 }
 </style>
+
