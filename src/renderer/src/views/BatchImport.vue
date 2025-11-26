@@ -56,6 +56,7 @@ interface PreviewItem {
 }
 
 // 全局封面选择设置（仅在文件上传模式下生效）
+// 默认优先使用网络检索封面，如果没有网络封面则使用电子书封面
 const globalCoverSource = ref<'network' | 'ebook'>('network')
 
 // 确保所有预览项都有 customSearchResult 属性
@@ -72,7 +73,7 @@ function ensurePreviewItem(item: Partial<PreviewItem>): PreviewItem {
     selected: item.selected ?? true,
     loading: item.loading ?? false,
     customSearchResult: item.customSearchResult ?? null,
-    coverSource: item.coverSource ?? 'auto'
+    coverSource: item.coverSource ?? 'network' // 默认为网络封面
   }
 }
 
@@ -96,6 +97,7 @@ const isIndeterminate = computed(() => {
 const onlySelectSuccess = ref(true)
 
 // 获取实际显示的封面URL
+// 优先级：网络封面 > 电子书封面 > null（显示书名首字母）
 function getDisplayCover(item: PreviewItem): string | null {
   const hasEbook = !!item.ebookCover
   const hasNetwork = !!(item.searchResult?.cover)
@@ -105,18 +107,21 @@ function getDisplayCover(item: PreviewItem): string | null {
   // 确定封面来源优先级
   let source: 'ebook' | 'network'
 
-  if (item.coverSource && item.coverSource !== 'auto') {
-    // 单本书有明确选择
+  // 单本书有明确选择时使用选择的值，否则使用全局设置（默认为 network）
+  if (item.coverSource === 'ebook' || item.coverSource === 'network') {
     source = item.coverSource
   } else {
-    // 使用全局设置
+    // 使用全局设置（默认为 network，优先使用网络封面）
     source = globalCoverSource.value
   }
 
-  // 根据来源返回封面，如果指定来源没有则使用另一个
+  // 根据用户选择的来源返回封面，如果指定来源没有则自动回退到另一个
+  // 默认行为：优先使用网络封面，如果没有网络封面则使用电子书封面
   if (source === 'ebook') {
+    // 用户明确选择电子书封面，但如果电子书封面不存在，回退到网络封面
     return item.ebookCover || (item.searchResult?.cover ?? null)
   } else {
+    // 用户选择网络封面（或默认），优先网络封面，如果没有则回退到电子书封面
     return (item.searchResult?.cover ?? null) || item.ebookCover || null
   }
 }
@@ -131,8 +136,8 @@ function getImportCover(item: PreviewItem, coverMap: Map<PreviewItem, string>): 
   // 确定封面来源优先级
   let source: 'ebook' | 'network'
 
-  if (item.coverSource && item.coverSource !== 'auto') {
-    // 单本书有明确选择
+  // 单本书有明确选择时使用选择的值，否则使用全局设置
+  if (item.coverSource === 'ebook' || item.coverSource === 'network') {
     source = item.coverSource
   } else {
     // 使用全局设置
@@ -283,12 +288,15 @@ async function handleStartSearch(): Promise<void> {
             window.api.ebook
               .extractCover(filePath)
               .then((coverResult) => {
-                if (coverResult.success && coverResult.data) {
+                if (coverResult && coverResult.success && coverResult.data) {
                   previewItem.ebookCover = coverResult.data
+                  console.log(`成功提取电子书封面: ${fileName}`, coverResult.data)
+                } else {
+                  console.warn(`提取电子书封面失败（无数据）: ${fileName}`, coverResult)
                 }
               })
               .catch((error) => {
-                console.warn('提取电子书封面失败:', error)
+                console.error(`提取电子书封面异常: ${fileName}`, error)
               })
           }
         }
@@ -331,7 +339,7 @@ async function performBatchSearch(): Promise<void> {
       item.searchError = undefined
     })
 
-    // 并发控制：同时最多5个请求，在速度和避免429之间平衡
+    // 并发控制：同时最多8个请求，在速度和避免429之间平衡
     const concurrency = 8
     // 请求间隔：启动新请求前延迟300ms，控制请求频率
     const requestDelay = 300
@@ -962,8 +970,8 @@ function handleClear(): void {
           <div v-if="importMode === 'files'" class="cover-select-wrapper">
             <span class="cover-select-label">全局封面：</span>
             <ElSelect v-model="globalCoverSource" class="cover-select" size="small">
-              <ElOption label="默认使用网络检索封面" value="network" />
-              <ElOption label="使用电子书封面" value="ebook" />
+              <ElOption label="优先使用网络检索封面（无网络封面时使用电子书封面）" value="network" />
+              <ElOption label="优先使用电子书封面（无电子书封面时使用网络封面）" value="ebook" />
             </ElSelect>
           </div>
         </div>
@@ -987,27 +995,29 @@ function handleClear(): void {
             <input type="checkbox" :checked="item.selected" @change="toggleItemSelection(item)" />
           </div>
 
-          <div class="item-cover">
-            <img
-              v-if="getDisplayCover(item)"
-              :src="getDisplayCover(item) || ''"
-              :alt="item.originalTitle"
-            />
-            <span v-else>{{ item.originalTitle.slice(0, 1).toUpperCase() }}</span>
-            <!-- 单本书封面选择器（仅当同时有两种封面时显示） -->
+          <div class="item-cover-wrapper">
+            <div class="item-cover">
+              <img
+                v-if="getDisplayCover(item)"
+                :src="getDisplayCover(item) || ''"
+                :alt="item.originalTitle"
+              />
+              <span v-else>{{ item.originalTitle.slice(0, 1).toUpperCase() }}</span>
+            </div>
+            <!-- 封面选择器（同时有电子书封面和网络封面时显示） -->
             <div
               v-if="item.ebookCover && item.searchResult?.cover"
-              class="cover-selector-overlay"
+              class="cover-selector-btn-wrapper"
             >
               <ElSelect
                 v-model="item.coverSource"
-                class="item-cover-select"
+                class="item-cover-select-btn"
                 size="small"
+                placeholder="选择封面"
                 @change="() => {}"
               >
-                <ElOption label="自动" value="auto" />
-                <ElOption label="电子书" value="ebook" />
-                <ElOption label="网络" value="network" />
+                <ElOption label="网络封面" value="network" />
+                <ElOption label="电子书封面" value="ebook" />
               </ElSelect>
             </div>
           </div>
@@ -1491,13 +1501,18 @@ function handleClear(): void {
   padding-top: 4px;
 }
 
+.item-cover-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .item-cover {
-  position: relative;
   width: 80px;
   height: 106px;
   border-radius: 8px;
   overflow: hidden;
-  flex-shrink: 0;
   background: var(--color-bg-muted);
   display: flex;
   align-items: center;
@@ -1512,34 +1527,31 @@ function handleClear(): void {
   object-fit: cover;
 }
 
-.cover-selector-overlay {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6));
-  padding: 4px;
-  backdrop-filter: blur(4px);
+.cover-selector-btn-wrapper {
+  width: 80px;
 }
 
-.item-cover-select {
+.item-cover-select-btn {
   width: 100%;
 }
 
-.item-cover-select :deep(.el-select__wrapper) {
-  background: rgba(255, 255, 255, 0.9) !important;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: none;
+.item-cover-select-btn :deep(.el-select__wrapper) {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 6px;
+  padding: 4px 8px;
+  min-height: 28px;
 }
 
-.item-cover-select :deep(.el-select__wrapper:hover) {
-  background: rgba(255, 255, 255, 1) !important;
+.item-cover-select-btn :deep(.el-select__wrapper:hover) {
+  border-color: var(--color-accent) !important;
 }
 
-.item-cover-select :deep(.el-select__placeholder),
-.item-cover-select :deep(.el-select__selected-item) {
-  color: var(--color-text-primary) !important;
+.item-cover-select-btn :deep(.el-select__placeholder),
+.item-cover-select-btn :deep(.el-select__selected-item) {
+  color: var(--color-text-secondary) !important;
   font-size: 11px;
+  line-height: 1.2;
 }
 
 .cover-select-wrapper {

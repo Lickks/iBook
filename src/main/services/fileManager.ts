@@ -1,7 +1,6 @@
 import { app, shell } from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
-import { v4 as uuidv4 } from 'uuid'
 
 /**
  * 文件管理服务
@@ -50,16 +49,28 @@ class FileManagerService {
       // 读取原文件
       const fileBuffer = fs.readFileSync(filePath)
 
-      // 生成唯一文件名
+      // 获取原文件名
       const originalName = path.basename(filePath)
       const ext = path.extname(originalName)
-      const uniqueName = `${bookId}_${uuidv4()}${ext}`
+      const baseName = path.basename(originalName, ext)
+      
+      // 直接使用原文件名
+      // 如果文件已存在，则添加序号后缀
+      let fileName = originalName
+      let savePath = path.join(this.getDocumentsDir(), fileName)
+      let counter = 1
+      
+      // 如果文件已存在，添加序号后缀
+      while (fs.existsSync(savePath)) {
+        fileName = `${baseName}(${counter})${ext}`
+        savePath = path.join(this.getDocumentsDir(), fileName)
+        counter++
+      }
 
       // 保存到文档目录
-      const savePath = path.join(this.getDocumentsDir(), uniqueName)
       fs.writeFileSync(savePath, fileBuffer)
 
-      return uniqueName
+      return fileName
     } catch (error) {
       console.error('保存文件失败:', error)
       throw new Error('保存文件失败')
