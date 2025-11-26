@@ -62,16 +62,16 @@ const api = {
   // 统计分析操作
   stats: {
     // 获取总体统计数据
-    getOverview: (): Promise<ApiResponse> => ipcRenderer.invoke('stats:getOverview'),
+    getOverview: (bookshelfId?: number | null): Promise<ApiResponse> => ipcRenderer.invoke('stats:getOverview', bookshelfId),
     // 获取分类统计数据
-    getCategoryStats: (): Promise<ApiResponse> => ipcRenderer.invoke('stats:getCategoryStats'),
+    getCategoryStats: (bookshelfId?: number | null): Promise<ApiResponse> => ipcRenderer.invoke('stats:getCategoryStats', bookshelfId),
     // 获取平台统计数据
-    getPlatformStats: (): Promise<ApiResponse> => ipcRenderer.invoke('stats:getPlatformStats'),
+    getPlatformStats: (bookshelfId?: number | null): Promise<ApiResponse> => ipcRenderer.invoke('stats:getPlatformStats', bookshelfId),
     // 获取阅读状态统计数据
-    getStatusStats: (): Promise<ApiResponse> => ipcRenderer.invoke('stats:getStatusStats'),
+    getStatusStats: (bookshelfId?: number | null): Promise<ApiResponse> => ipcRenderer.invoke('stats:getStatusStats', bookshelfId),
     // 获取月度统计数据
-    getMonthlyStats: (months?: number): Promise<ApiResponse> =>
-      ipcRenderer.invoke('stats:getMonthlyStats', months),
+    getMonthlyStats: (months?: number, bookshelfId?: number | null): Promise<ApiResponse> =>
+      ipcRenderer.invoke('stats:getMonthlyStats', months, bookshelfId),
       // 获取指定年份的统计数据
     getYearlyStats: (year: number): Promise<ApiResponse> =>
       ipcRenderer.invoke('stats:getYearlyStats', year),

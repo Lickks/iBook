@@ -44,9 +44,11 @@ export function registerStatsHandlers(): void {
   /**
    * 获取总体统计数据
    */
-  ipcMain.handle('stats:getOverview', async () => {
+  ipcMain.handle('stats:getOverview', async (_, bookshelfId?: number | null) => {
     try {
-      const books = databaseService.getAllBooks()
+      const books = bookshelfId !== null && bookshelfId !== undefined
+        ? databaseService.getBooksInBookshelf(bookshelfId)
+        : databaseService.getAllBooks()
 
       // 计算总体统计
       const totalBooks = books.length
@@ -173,9 +175,11 @@ export function registerStatsHandlers(): void {
   /**
    * 获取分类统计数据
    */
-  ipcMain.handle('stats:getCategoryStats', async () => {
+  ipcMain.handle('stats:getCategoryStats', async (_, bookshelfId?: number | null) => {
     try {
-      const books = databaseService.getAllBooks()
+      const books = bookshelfId !== null && bookshelfId !== undefined
+        ? databaseService.getBooksInBookshelf(bookshelfId)
+        : databaseService.getAllBooks()
       const categoryMap = new Map<string, number>()
 
       books.forEach(book => {
@@ -208,9 +212,11 @@ export function registerStatsHandlers(): void {
   /**
    * 获取平台统计数据
    */
-  ipcMain.handle('stats:getPlatformStats', async () => {
+  ipcMain.handle('stats:getPlatformStats', async (_, bookshelfId?: number | null) => {
     try {
-      const books = databaseService.getAllBooks()
+      const books = bookshelfId !== null && bookshelfId !== undefined
+        ? databaseService.getBooksInBookshelf(bookshelfId)
+        : databaseService.getAllBooks()
       const platformMap = new Map<string, number>()
 
       books.forEach(book => {
@@ -243,9 +249,11 @@ export function registerStatsHandlers(): void {
   /**
    * 获取阅读状态统计数据
    */
-  ipcMain.handle('stats:getStatusStats', async () => {
+  ipcMain.handle('stats:getStatusStats', async (_, bookshelfId?: number | null) => {
     try {
-      const books = databaseService.getAllBooks()
+      const books = bookshelfId !== null && bookshelfId !== undefined
+        ? databaseService.getBooksInBookshelf(bookshelfId)
+        : databaseService.getAllBooks()
       const statusMap = new Map<string, number>()
       const statusNames = ['未读', '阅读中', '已读完', '弃读', '待读']
 
@@ -283,9 +291,11 @@ export function registerStatsHandlers(): void {
   /**
    * 获取月度统计数据
    */
-  ipcMain.handle('stats:getMonthlyStats', async (_, months: number = 12) => {
+  ipcMain.handle('stats:getMonthlyStats', async (_, months: number = 12, bookshelfId?: number | null) => {
     try {
-      const books = databaseService.getAllBooks()
+      const books = bookshelfId !== null && bookshelfId !== undefined
+        ? databaseService.getBooksInBookshelf(bookshelfId)
+        : databaseService.getAllBooks()
       const result = getMonthlyStats(books, months)
 
       return {

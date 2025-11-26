@@ -62,8 +62,8 @@ export class StatsApi {
   /**
    * 获取总体统计数据
    */
-  async getOverview(): Promise<ApiResponse<StatisticsData>> {
-    return await window.api.stats?.getOverview() || {
+  async getOverview(bookshelfId?: number | null): Promise<ApiResponse<StatisticsData>> {
+    return await window.api.stats?.getOverview(bookshelfId) || {
       success: false,
       error: '统计API不可用'
     }
@@ -72,8 +72,8 @@ export class StatsApi {
   /**
    * 获取分类统计数据
    */
-  async getCategoryStats(): Promise<ApiResponse<ChartData[]>> {
-    return await window.api.stats?.getCategoryStats() || {
+  async getCategoryStats(bookshelfId?: number | null): Promise<ApiResponse<ChartData[]>> {
+    return await window.api.stats?.getCategoryStats(bookshelfId) || {
       success: false,
       error: '统计API不可用'
     }
@@ -82,8 +82,8 @@ export class StatsApi {
   /**
    * 获取平台统计数据
    */
-  async getPlatformStats(): Promise<ApiResponse<ChartData[]>> {
-    return await window.api.stats?.getPlatformStats() || {
+  async getPlatformStats(bookshelfId?: number | null): Promise<ApiResponse<ChartData[]>> {
+    return await window.api.stats?.getPlatformStats(bookshelfId) || {
       success: false,
       error: '统计API不可用'
     }
@@ -92,8 +92,8 @@ export class StatsApi {
   /**
    * 获取阅读状态统计数据
    */
-  async getStatusStats(): Promise<ApiResponse<ChartData[]>> {
-    return await window.api.stats?.getStatusStats() || {
+  async getStatusStats(bookshelfId?: number | null): Promise<ApiResponse<ChartData[]>> {
+    return await window.api.stats?.getStatusStats(bookshelfId) || {
       success: false,
       error: '统计API不可用'
     }
@@ -102,8 +102,8 @@ export class StatsApi {
   /**
    * 获取月度统计数据
    */
-  async getMonthlyStats(months: number = 12): Promise<ApiResponse<{ books: MonthlyData[], words: MonthlyData[] }>> {
-    return await window.api.stats?.getMonthlyStats(months) || {
+  async getMonthlyStats(months: number = 12, bookshelfId?: number | null): Promise<ApiResponse<{ books: MonthlyData[], words: MonthlyData[] }>> {
+    return await window.api.stats?.getMonthlyStats(months, bookshelfId) || {
       success: false,
       error: '统计API不可用'
     }

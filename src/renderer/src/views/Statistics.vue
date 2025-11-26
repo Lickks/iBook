@@ -2,9 +2,31 @@
   <div class="statistics-page">
     <!-- 页面标题 -->
     <div class="page-header">
-      <h1>统计分析</h1>
-      <p class="subtitle">查看您的阅读数据和统计信息</p>
-      <div class="actions">
+      <div class="header-left">
+        <h1>统计分析</h1>
+        <p class="subtitle">查看您的阅读数据和统计信息</p>
+      </div>
+      <div class="header-right">
+        <div class="bookshelf-filter">
+          <label class="filter-label">统计范围：</label>
+          <div class="bookshelf-select-wrapper">
+            <select
+              class="bookshelf-select"
+              :value="selectedBookshelfId === null ? '' : selectedBookshelfId"
+              @change="handleBookshelfChange"
+              :disabled="loading"
+            >
+              <option value="">全部书籍</option>
+              <option
+                v-for="bookshelf in bookshelves"
+                :key="bookshelf.id"
+                :value="bookshelf.id"
+              >
+                {{ bookshelf.name }}{{ bookshelf.isDefault ? ' (全局)' : '' }}
+              </option>
+            </select>
+          </div>
+        </div>
         <button
           class="ghost-btn"
           type="button"
@@ -108,11 +130,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUIStore } from '../stores/ui'
+import { useBookshelfStore } from '../stores/bookshelf'
+import { statsApi } from '../api/stats'
 
 const uiStore = useUIStore()
+const bookshelfStore = useBookshelfStore()
+
+// 书架选择状态
+const selectedBookshelfId = ref<number | null>(null)
+const bookshelves = ref(bookshelfStore.bookshelves)
 
 interface Book {
   id: string
@@ -429,12 +458,19 @@ const createWordCountChart = () => {
 }
 
 
+// 处理书架选择变化
+const handleBookshelfChange = (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  selectedBookshelfId.value = target.value === '' ? null : Number(target.value)
+  fetchData()
+}
+
 // 获取统计数据
 const fetchData = async () => {
   loading.value = true
   try {
-    console.log('获取统计数据...')
-    const response = await window.api.stats?.getOverview()
+    console.log('获取统计数据...', selectedBookshelfId.value)
+    const response = await statsApi.getOverview(selectedBookshelfId.value)
     console.log('统计响应:', response)
 
     if (response && response.success && response.data) {
@@ -483,8 +519,21 @@ const refreshData = () => {
 }
 
 
-onMounted(() => {
+// 监听书架列表变化
+watch(() => bookshelfStore.bookshelves, (newBookshelves) => {
+  bookshelves.value = newBookshelves
+}, { deep: true })
+
+onMounted(async () => {
   console.log('统计分析页面加载')
+  // 获取书架列表
+  try {
+    await bookshelfStore.fetchBookshelves()
+    bookshelves.value = bookshelfStore.bookshelves
+  } catch (error) {
+    console.error('获取书架列表失败:', error)
+  }
+  // 默认选择"全部书籍"（selectedBookshelfId 已经是 null）
   fetchData()
 })
 </script>
@@ -505,6 +554,10 @@ onMounted(() => {
   border-bottom: 1px solid var(--el-border-color-light, #e5e7eb);
 }
 
+.header-left {
+  flex: 1;
+}
+
 .page-header h1 {
   font-size: 28px;
   font-weight: 700;
@@ -516,6 +569,75 @@ onMounted(() => {
   color: var(--el-text-color-secondary, #6b7280);
   margin: 0;
   font-size: 16px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.bookshelf-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.bookshelf-select-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.bookshelf-select {
+  appearance: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px 36px 8px 12px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 160px;
+  font-weight: 500;
+}
+
+.bookshelf-select:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.bookshelf-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-soft);
+}
+
+.bookshelf-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.bookshelf-select-wrapper::after {
+  content: '▼';
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.bookshelf-select-wrapper:hover::after {
+  color: var(--color-accent);
 }
 
 .actions {
@@ -677,6 +799,25 @@ onMounted(() => {
     flex-direction: column;
     gap: 16px;
     align-items: flex-start;
+  }
+
+  .header-right {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .bookshelf-filter {
+    width: 100%;
+  }
+
+  .bookshelf-select-wrapper {
+    width: 100%;
+  }
+
+  .bookshelf-select {
+    width: 100%;
   }
 
   .actions {

@@ -37,11 +37,11 @@ declare global {
         extractCover: (filePath: string) => Promise<ApiResponse<string | null>>
       }
       stats: {
-        getOverview: () => Promise<ApiResponse>
-        getCategoryStats: () => Promise<ApiResponse>
-        getPlatformStats: () => Promise<ApiResponse>
-        getStatusStats: () => Promise<ApiResponse>
-        getMonthlyStats: (months?: number) => Promise<ApiResponse>
+        getOverview: (bookshelfId?: number | null) => Promise<ApiResponse>
+        getCategoryStats: (bookshelfId?: number | null) => Promise<ApiResponse>
+        getPlatformStats: (bookshelfId?: number | null) => Promise<ApiResponse>
+        getStatusStats: (bookshelfId?: number | null) => Promise<ApiResponse>
+        getMonthlyStats: (months?: number, bookshelfId?: number | null) => Promise<ApiResponse>
         getYearlyStats: (year: number) => Promise<ApiResponse>
         recalculateStats: () => Promise<ApiResponse>
       }
