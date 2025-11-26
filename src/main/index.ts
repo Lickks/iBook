@@ -1,20 +1,40 @@
+// ===== 必须在所有导入之前设置编码 =====
+// 修复 Windows 控制台中文乱码问题
+if (process.platform === 'win32') {
+  // 设置环境变量
+  if (!process.env.PYTHONIOENCODING) {
+    process.env.PYTHONIOENCODING = 'utf-8'
+  }
+
+  // 设置控制台输出编码为 UTF-8
+  try {
+    // 方法1: 使用 execSync 设置代码页（适用于 cmd）
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { execSync } = require('child_process')
+    execSync('chcp 65001 >nul 2>&1', { encoding: 'utf8', stdio: 'ignore', shell: true })
+  } catch {
+    // 忽略错误，继续执行
+  }
+
+  // 方法2: 直接设置 stdout/stderr 编码（如果支持）
+  try {
+    if (process.stdout && typeof process.stdout.setDefaultEncoding === 'function') {
+      process.stdout.setDefaultEncoding('utf8')
+    }
+    if (process.stderr && typeof process.stderr.setDefaultEncoding === 'function') {
+      process.stderr.setDefaultEncoding('utf8')
+    }
+  } catch {
+    // 某些环境下可能不支持，忽略错误
+  }
+}
+
 import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 
 // 检测是否为开发环境
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
-
-// 设置控制台编码为 UTF-8（修复 Windows 控制台中文乱码问题）
-if (process.platform === 'win32') {
-  try {
-    const { execSync } = require('child_process')
-    // 设置 Windows 控制台代码页为 UTF-8 (65001)
-    execSync('chcp 65001 >nul 2>&1', { encoding: 'utf8', stdio: 'ignore' })
-  } catch {
-    // 如果设置失败，忽略错误
-  }
-}
 import { databaseService } from './services/database'
 import { setupBookHandlers } from './ipc/bookHandler'
 import { setupDocumentHandlers } from './ipc/documentHandler'
