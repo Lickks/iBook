@@ -3,6 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import type { BookInput, DocumentInput, SearchDetail, SearchResult, TagInput } from '../renderer/src/types/book'
 import type { BookshelfInput } from '../renderer/src/types/bookshelf'
 import type { ApiResponse } from '../renderer/src/types/api'
+import type { ChapterRule, Chapter, BookMetadata, ImageProcessOptions } from '../renderer/src/types/txtToEpub'
 
 // Custom APIs for renderer
 const api = {
@@ -146,6 +147,34 @@ const api = {
       ipcRenderer.on('backup:restore-complete', handler)
       return () => ipcRenderer.removeListener('backup:restore-complete', handler)
     }
+  },
+
+  // TXT 转 EPUB 操作
+  txtToEpub: {
+    selectTxtFile: (): Promise<ApiResponse<string>> => ipcRenderer.invoke('txtToEpub:selectTxtFile'),
+    readFile: (filePath: string): Promise<ApiResponse<string>> =>
+      ipcRenderer.invoke('txtToEpub:readFile', filePath),
+    detectEncoding: (filePath: string): Promise<ApiResponse<string>> =>
+      ipcRenderer.invoke('txtToEpub:detectEncoding', filePath),
+    parseChapters: (content: string, rule: ChapterRule): Promise<ApiResponse<Chapter[]>> =>
+      ipcRenderer.invoke('txtToEpub:parseChapters', content, rule),
+    validateRegex: (regex: string): Promise<ApiResponse<{ valid: boolean; error?: string }>> =>
+      ipcRenderer.invoke('txtToEpub:validateRegex', regex),
+    testRegex: (content: string, regex: string): Promise<ApiResponse<string[]>> =>
+      ipcRenderer.invoke('txtToEpub:testRegex', content, regex),
+    selectCoverImage: (): Promise<ApiResponse<string>> => ipcRenderer.invoke('txtToEpub:selectCoverImage'),
+    processCoverImage: (
+      imagePath: string,
+      options?: ImageProcessOptions
+    ): Promise<ApiResponse<string>> => ipcRenderer.invoke('txtToEpub:processCoverImage', imagePath, options),
+    generateEpub: (
+      chapters: Chapter[],
+      metadata: BookMetadata,
+      coverImagePath?: string
+    ): Promise<ApiResponse<string>> =>
+      ipcRenderer.invoke('txtToEpub:generateEpub', chapters, metadata, coverImagePath),
+    saveEpub: (epubPath: string, defaultFileName?: string): Promise<ApiResponse<string>> =>
+      ipcRenderer.invoke('txtToEpub:saveEpub', epubPath, defaultFileName)
   }
 }
 

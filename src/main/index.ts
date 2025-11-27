@@ -43,6 +43,7 @@ import { registerStatsHandlers } from './ipc/statsHandler'
 import { setupTagHandlers } from './ipc/tagHandler'
 import { setupBookshelfHandlers } from './ipc/bookshelfHandler'
 import { setupBackupHandlers } from './ipc/backupHandler'
+import { setupTxtToEpubHandlers } from './ipc/txtToEpubHandler'
 import { createWindowWithState } from './services/windowState'
 
 function createWindow(): void {
@@ -91,6 +92,7 @@ app.whenReady().then(() => {
   setupTagHandlers()
   setupBookshelfHandlers()
   setupBackupHandlers()
+  setupTxtToEpubHandlers()
 
   createWindow()
 

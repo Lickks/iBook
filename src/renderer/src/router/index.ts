@@ -42,6 +42,11 @@ const router = createRouter({
       path: '/bookshelves',
       name: 'BookshelfManagement',
       component: () => import('../views/BookshelfManagement.vue')
+    },
+    {
+      path: '/txt-to-epub',
+      name: 'TxtToEpub',
+      component: () => import('../views/TxtToEpub.vue')
     }
   ]
 })
