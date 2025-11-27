@@ -391,9 +391,14 @@ onUnmounted(() => {
   gap: 12px;
   margin-bottom: 20px;
   padding: 14px 20px;
-  background: var(--el-fill-color-lighter);
-  border-radius: 10px;
+  background: var(--el-bg-color-page);
+  border-radius: 8px;
   border: 1px solid var(--el-border-color-lighter);
+}
+
+.dark .regex-display {
+  background: var(--color-bg-soft);
+  border-color: var(--color-border);
 }
 
 .regex-display label {
@@ -408,10 +413,16 @@ onUnmounted(() => {
 }
 
 .regex-input :deep(.el-input__inner) {
-  background: var(--el-bg-color);
+  background: var(--el-bg-color-page);
   border-color: var(--el-border-color-lighter);
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 12px;
+}
+
+.dark .regex-input :deep(.el-input__inner) {
+  background: var(--color-bg-soft);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
 }
 
 .toolbar {
@@ -452,9 +463,14 @@ onUnmounted(() => {
 
 .table-container {
   border: 1px solid var(--el-border-color-lighter);
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
-  background: var(--el-bg-color);
+  background: var(--el-bg-color-page);
+}
+
+.dark .table-container {
+  background: #1E2736;
+  border-color: var(--color-border);
 }
 
 :deep(.table-container .el-table) {
@@ -462,8 +478,42 @@ onUnmounted(() => {
   background: transparent;
 }
 
+.dark :deep(.table-container .el-table) {
+  background: #1E2736;
+}
+
+.dark :deep(.table-container .el-table .el-table__inner-wrapper) {
+  background: #1E2736;
+}
+
+.dark :deep(.table-container .el-table tbody) {
+  background: #1E2736;
+}
+
+/* 暗色主题下表格行基础样式优化 */
+.dark :deep(.table-container .el-table tbody tr) {
+  background-color: #1E2736;
+  transition: background-color 0.2s ease;
+}
+
+.dark :deep(.table-container .el-table tbody tr:nth-child(even)) {
+  background-color: #1E2736;
+}
+
+.dark :deep(.table-container .el-table tbody tr:hover) {
+  background-color: #2A3441 !important;
+}
+
+.dark :deep(.table-container .el-table tbody tr.current-row) {
+  background-color: rgba(64, 158, 255, 0.15) !important;
+}
+
 :deep(.table-container .el-table__header) {
-  background: var(--el-fill-color-lighter);
+  background: var(--el-bg-color-page);
+}
+
+.dark :deep(.table-container .el-table__header) {
+  background: #1E2736;
 }
 
 :deep(.table-container .el-table th) {
@@ -473,12 +523,24 @@ onUnmounted(() => {
   color: var(--el-text-color-primary);
 }
 
+.dark :deep(.table-container .el-table th) {
+  border-bottom-color: var(--color-border);
+}
+
 :deep(.table-container .el-table td) {
   border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
+.dark :deep(.table-container .el-table td) {
+  border-bottom-color: var(--color-border);
+}
+
 :deep(.table-container .el-table__row:hover) {
   background: var(--el-fill-color-lighter);
+}
+
+.dark :deep(.table-container .el-table__row:hover) {
+  background: #2A3441;
 }
 
 .instructions {
@@ -498,9 +560,23 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
+.dark .instructions span {
+  background: var(--color-surface);
+}
+
 :deep(.deleted-row) {
   background-color: var(--el-fill-color-light);
   color: var(--el-text-color-secondary);
+}
+
+.dark :deep(.deleted-row) {
+  background-color: var(--color-bg-muted);
+  opacity: 0.7;
+}
+
+.dark :deep(.deleted-row:hover) {
+  background-color: var(--color-bg-muted);
+  opacity: 0.85;
 }
 
 :deep(.deleted-row td) {
@@ -512,13 +588,27 @@ onUnmounted(() => {
   background-color: var(--el-warning-color-light-9);
 }
 
+.dark :deep(.short-chapter-row) {
+  background-color: rgba(251, 146, 60, 0.12);
+}
+
+.dark :deep(.short-chapter-row:hover) {
+  background-color: rgba(251, 146, 60, 0.18) !important;
+}
+
 :deep(.el-table__row.current-row) {
   background-color: var(--el-color-primary-light-9);
 }
 
+.dark :deep(.el-table__row.current-row) {
+  background-color: rgba(64, 158, 255, 0.15) !important;
+}
+
 :deep(.el-table .el-table__cell) {
   padding: 12px 0;
+  background-color: transparent;
 }
+
 
 :deep(.el-table .el-table__cell .cell) {
   padding: 0;

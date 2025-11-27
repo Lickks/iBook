@@ -322,7 +322,7 @@ onMounted(() => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 32px 24px;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.02), transparent);
+  background: transparent;
 }
 
 .page-header {
@@ -352,7 +352,12 @@ onMounted(() => {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   border-radius: 8px;
   overflow: hidden;
-  background: var(--el-bg-color);
+  background: var(--el-bg-color-page);
+}
+
+.dark .steps-card {
+  background: var(--color-bg-soft);
+  border-color: var(--color-border);
 }
 
 :deep(.steps-card .el-card__body) {
@@ -376,6 +381,10 @@ onMounted(() => {
 
 :deep(.step-item:hover) {
   background: var(--el-fill-color-lighter);
+}
+
+.dark :deep(.step-item:hover) {
+  background: rgba(64, 158, 255, 0.1);
 }
 
 :deep(.el-step__head.is-process) {
@@ -427,8 +436,13 @@ onMounted(() => {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   border-radius: 8px;
   overflow: hidden;
-  background: var(--el-bg-color);
+  background: var(--el-bg-color-page);
   transition: box-shadow 0.3s ease;
+}
+
+.dark .content-card {
+  background: var(--color-bg-soft);
+  border-color: var(--color-border);
 }
 
 .content-card:hover {
@@ -466,10 +480,15 @@ onMounted(() => {
   width: 100%;
   max-width: 600px;
   padding: 20px 24px;
-  background: var(--el-fill-color-lighter);
+  background: var(--el-bg-color-page);
   border-radius: 8px;
   border: 1px solid var(--el-border-color-lighter);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.dark .file-info {
+  background: var(--color-surface);
+  border-color: var(--color-border);
 }
 
 .info-item {
@@ -531,9 +550,14 @@ onMounted(() => {
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 8px;
   padding: 12px;
-  background: var(--el-fill-color-lighter);
+  background: var(--el-bg-color-page);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
+}
+
+.dark .cover-preview {
+  background: var(--color-surface);
+  border-color: var(--color-border);
 }
 
 .cover-preview:hover {
@@ -577,7 +601,12 @@ onMounted(() => {
   border: 1px solid var(--el-border-color-lighter);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   border-radius: 8px;
-  background: var(--el-fill-color-lighter);
+  background: var(--el-bg-color-page);
+}
+
+.dark .progress-card {
+  background: var(--color-bg-soft);
+  border-color: var(--color-border);
 }
 
 :deep(.progress-card .el-card__body) {

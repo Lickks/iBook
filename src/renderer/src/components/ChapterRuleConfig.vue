@@ -305,9 +305,14 @@ async function handleParse() {
 .mode-selector {
   margin-bottom: 28px;
   padding: 16px 20px;
-  background: var(--el-fill-color-lighter);
+  background: var(--el-bg-color-page);
   border-radius: 8px;
   border: 1px solid var(--el-border-color-lighter);
+}
+
+.dark .mode-selector {
+  background: var(--color-surface);
+  border-color: var(--color-border);
 }
 
 :deep(.mode-selector .el-radio-group) {
@@ -416,10 +421,15 @@ async function handleParse() {
 .test-results {
   margin-top: 24px;
   padding: 20px;
-  background: var(--el-fill-color-lighter);
+  background: var(--el-bg-color-page);
   border-radius: 8px;
   border: 1px solid var(--el-border-color-lighter);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.dark .test-results {
+  background: var(--color-surface);
+  border-color: var(--color-border);
 }
 
 .test-title {
