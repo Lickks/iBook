@@ -169,17 +169,7 @@ async function handleConvert() {
     // 保存 EPUB
     await store.saveEpub(epubPath)
 
-    ElMessageBox.confirm('EPUB 文件已生成并保存，是否重新开始？', '转换完成', {
-      type: 'success',
-      confirmButtonText: '重新开始',
-      cancelButtonText: '关闭'
-    })
-      .then(() => {
-        handleReset()
-      })
-      .catch(() => {
-        // 用户选择关闭
-      })
+    ElMessage.success('EPUB 文件已生成并保存')
   } catch (error: any) {
     if (error.message !== '未选择保存位置') {
       ElMessage.error(error.message || '转换失败')
@@ -225,67 +215,73 @@ onMounted(() => {
           :title="step.title"
           :description="step.description"
           @click="goToStep(index)"
-          style="cursor: pointer"
+          class="step-item"
         />
       </el-steps>
     </el-card>
 
     <!-- 步骤内容 -->
     <el-card class="content-card">
-      <!-- 步骤 1: 选择文件 -->
-      <div v-if="currentStep === 0" class="step-content">
-        <div class="file-selector">
-          <el-button type="primary" size="large" :icon="Upload" @click="handleSelectFile">
-            选择 TXT 文件
-          </el-button>
-          <div v-if="store.filePath" class="file-info">
-            <div class="info-item">
-              <span class="label">文件名：</span>
-              <span class="value">{{ store.fileName }}</span>
-            </div>
-            <div class="info-item">
-              <span class="label">文件编码：</span>
-              <span class="value">{{ store.fileEncoding }}</span>
-            </div>
-            <div class="info-item">
-              <span class="label">文件路径：</span>
-              <span class="value path">{{ store.filePath }}</span>
+      <transition name="fade-slide" mode="out-in">
+        <!-- 步骤 1: 选择文件 -->
+        <div v-if="currentStep === 0" key="step-0" class="step-content">
+          <div class="file-selector">
+            <el-button type="primary" size="large" :icon="Upload" @click="handleSelectFile">
+              选择 TXT 文件
+            </el-button>
+            <transition name="slide-up">
+              <div v-if="store.filePath" class="file-info">
+                <div class="info-item">
+                  <span class="label">文件名：</span>
+                  <span class="value">{{ store.fileName }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">文件编码：</span>
+                  <span class="value">{{ store.fileEncoding }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">文件路径：</span>
+                  <span class="value path">{{ store.filePath }}</span>
+                </div>
+              </div>
+            </transition>
+          </div>
+        </div>
+
+        <!-- 步骤 2: 配置规则 -->
+        <div v-else-if="currentStep === 1" key="step-1" class="step-content">
+          <ChapterRuleConfig />
+        </div>
+
+        <!-- 步骤 3: 编辑章节 -->
+        <div v-else-if="currentStep === 2" key="step-2" class="step-content">
+          <ChapterEditor />
+        </div>
+
+        <!-- 步骤 4: 书籍信息 -->
+        <div v-else-if="currentStep === 3" key="step-3" class="step-content">
+          <BookInfoForm ref="bookInfoFormRef" />
+        </div>
+
+        <!-- 步骤 5: 上传封面 -->
+        <div v-else-if="currentStep === 4" key="step-4" class="step-content">
+          <div class="cover-upload">
+            <el-button type="primary" :icon="Picture" @click="handleSelectCover">
+              选择封面图片
+            </el-button>
+            <transition name="scale-fade">
+              <div v-if="store.coverDataUrl" class="cover-preview">
+                <el-image :src="store.coverDataUrl" fit="contain" style="max-width: 300px; max-height: 400px" />
+              </div>
+            </transition>
+            <div class="cover-hint">
+              <p>建议尺寸：600x800 像素（3:4 比例）</p>
+              <p>支持格式：JPG、PNG、WebP</p>
+              <p>如果不上传封面，将使用默认封面</p>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- 步骤 2: 配置规则 -->
-      <div v-if="currentStep === 1" class="step-content">
-        <ChapterRuleConfig />
-      </div>
-
-      <!-- 步骤 3: 编辑章节 -->
-      <div v-if="currentStep === 2" class="step-content">
-        <ChapterEditor />
-      </div>
-
-      <!-- 步骤 4: 书籍信息 -->
-      <div v-if="currentStep === 3" class="step-content">
-        <BookInfoForm ref="bookInfoFormRef" />
-      </div>
-
-      <!-- 步骤 5: 上传封面 -->
-      <div v-if="currentStep === 4" class="step-content">
-        <div class="cover-upload">
-          <el-button type="primary" :icon="Picture" @click="handleSelectCover">
-            选择封面图片
-          </el-button>
-          <div v-if="store.coverDataUrl" class="cover-preview">
-            <el-image :src="store.coverDataUrl" fit="contain" style="max-width: 300px; max-height: 400px" />
-          </div>
-          <div class="cover-hint">
-            <p>建议尺寸：600x800 像素（3:4 比例）</p>
-            <p>支持格式：JPG、PNG、WebP</p>
-            <p>如果不上传封面，将使用默认封面</p>
-          </div>
-        </div>
-      </div>
+      </transition>
     </el-card>
 
     <!-- 操作按钮 -->
@@ -325,103 +321,236 @@ onMounted(() => {
 .txt-to-epub {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 32px 24px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.02), transparent);
 }
 
 .page-header {
-  margin-bottom: 24px;
+  margin-bottom: 32px;
   text-align: center;
+  padding: 24px 0;
 }
 
 .page-header h1 {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 600;
-  color: var(--color-text-primary);
-  margin: 0 0 8px 0;
+  color: var(--el-text-color-primary);
+  margin: 0 0 12px 0;
+  letter-spacing: -0.5px;
 }
 
 .subtitle {
-  font-size: 14px;
-  color: var(--color-text-secondary);
+  font-size: 15px;
+  color: var(--el-text-color-secondary);
   margin: 0;
+  opacity: 0.8;
 }
 
 .steps-card {
   margin-bottom: 24px;
+  border: 1px solid var(--el-border-color-lighter);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--el-bg-color);
+}
+
+:deep(.steps-card .el-card__body) {
+  padding: 24px;
+}
+
+:deep(.el-steps) {
+  padding: 0;
+}
+
+:deep(.el-step__head) {
+  transition: all 0.3s ease;
+}
+
+:deep(.step-item) {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+:deep(.step-item:hover) {
+  background: var(--el-fill-color-lighter);
+}
+
+:deep(.el-step__head.is-process) {
+  color: var(--el-color-primary);
+}
+
+:deep(.el-step__head.is-process .el-step__icon) {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary);
+  box-shadow: 0 0 0 4px var(--el-color-primary-light-9);
+}
+
+:deep(.el-step__head.is-finish .el-step__icon) {
+  border-color: var(--el-color-success);
+  background: var(--el-color-success);
+}
+
+:deep(.el-step__head.is-finish .el-step__icon-inner) {
+  color: #fff;
+}
+
+:deep(.el-step__title) {
+  font-weight: 500;
+  font-size: 14px;
+  transition: color 0.3s ease;
+}
+
+:deep(.el-step__title.is-process) {
+  color: var(--el-color-primary);
+  font-weight: 600;
+}
+
+:deep(.el-step__description) {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+:deep(.el-step__description.is-process) {
+  opacity: 1;
+  color: var(--el-text-color-regular);
 }
 
 .content-card {
   margin-bottom: 24px;
   min-height: 400px;
+  border: 1px solid var(--el-border-color-lighter);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--el-bg-color);
+  transition: box-shadow 0.3s ease;
+}
+
+.content-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+:deep(.content-card .el-card__body) {
+  padding: 0;
 }
 
 .step-content {
-  padding: 20px;
+  padding: 32px;
 }
 
 .file-selector {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: 28px;
+  padding: 20px 0;
+}
+
+.file-selector :deep(.el-button) {
+  padding: 14px 32px;
+  font-size: 15px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.file-selector :deep(.el-button:hover) {
+  transform: translateY(-1px);
 }
 
 .file-info {
   width: 100%;
   max-width: 600px;
-  padding: 16px;
-  background: var(--color-bg-soft);
+  padding: 20px 24px;
+  background: var(--el-fill-color-lighter);
   border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .info-item {
   display: flex;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 .info-item:last-child {
   margin-bottom: 0;
+  border-bottom: none;
 }
 
 .info-item .label {
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: var(--el-text-color-regular);
   min-width: 100px;
+  font-size: 14px;
 }
 
 .info-item .value {
-  color: var(--color-text-primary);
+  color: var(--el-text-color-primary);
   word-break: break-all;
+  font-size: 14px;
+  flex: 1;
 }
 
 .info-item .value.path {
-  font-family: monospace;
+  font-family: 'Consolas', 'Monaco', monospace;
   font-size: 12px;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color);
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 
 .cover-upload {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
+  padding: 20px 0;
+}
+
+.cover-upload :deep(.el-button) {
+  padding: 14px 32px;
+  font-size: 15px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.cover-upload :deep(.el-button:hover) {
+  transform: translateY(-1px);
 }
 
 .cover-preview {
   margin: 20px 0;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  padding: 8px;
-  background: var(--color-bg-soft);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--el-fill-color-lighter);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.cover-preview:hover {
+  border-color: var(--el-border-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .cover-hint {
   text-align: center;
-  color: var(--color-text-tertiary);
+  color: var(--el-text-color-secondary);
   font-size: 13px;
+  line-height: 1.8;
+  opacity: 0.8;
 }
 
 .cover-hint p {
-  margin: 4px 0;
+  margin: 6px 0;
 }
 
 .action-bar {
@@ -429,20 +558,168 @@ onMounted(() => {
   justify-content: center;
   gap: 12px;
   margin-bottom: 24px;
+  padding: 20px 0;
+}
+
+.action-bar :deep(.el-button) {
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.action-bar :deep(.el-button--primary:hover:not(:disabled)) {
+  transform: translateY(-1px);
 }
 
 .progress-card {
   margin-top: 24px;
+  border: 1px solid var(--el-border-color-lighter);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: var(--el-fill-color-lighter);
+}
+
+:deep(.progress-card .el-card__body) {
+  padding: 24px;
 }
 
 .progress-info {
-  padding: 16px;
+  padding: 0;
 }
 
 .progress-message {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   font-weight: 500;
-  color: var(--color-text-primary);
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+}
+
+:deep(.el-progress-bar__outer) {
+  border-radius: 10px;
+  background-color: var(--el-fill-color);
+}
+
+:deep(.el-progress-bar__inner) {
+  border-radius: 10px;
+}
+
+/* 步骤切换动画 */
+.fade-slide-enter-active {
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.fade-slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.55, 0, 0.55, 0.2);
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.fade-slide-enter-to,
+.fade-slide-leave-from {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* 文件信息显示动画 */
+.slide-up-enter-active {
+  transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.slide-up-enter-to {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 封面预览动画 */
+.scale-fade-enter-active {
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.scale-fade-enter-from {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.scale-fade-enter-to {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* 卡片进入动画 */
+.steps-card,
+.content-card {
+  animation: cardFadeIn 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 按钮点击动画 */
+.action-bar :deep(.el-button),
+.file-selector :deep(.el-button),
+.cover-upload :deep(.el-button) {
+  position: relative;
+  overflow: hidden;
+}
+
+.action-bar :deep(.el-button::after),
+.file-selector :deep(.el-button::after),
+.cover-upload :deep(.el-button::after) {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.action-bar :deep(.el-button:active::after),
+.file-selector :deep(.el-button:active::after),
+.cover-upload :deep(.el-button:active::after) {
+  width: 300px;
+  height: 300px;
+}
+
+/* 进度条动画 */
+.progress-card {
+  animation: slideDown 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>
 

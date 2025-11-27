@@ -133,14 +133,104 @@ defineExpose({
 <style scoped>
 .book-info-form {
   padding: 20px;
-  background: var(--color-bg);
-  border-radius: 8px;
+  background: transparent;
+}
+
+:deep(.el-form-item) {
+  margin-bottom: 22px;
+}
+
+:deep(.el-form-item__label) {
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+}
+
+:deep(.el-input__inner),
+:deep(.el-textarea__inner) {
+  transition: all 0.3s ease;
+}
+
+:deep(.el-input__inner:focus),
+:deep(.el-textarea__inner:focus) {
+  border-color: var(--el-color-primary);
 }
 
 .form-hint {
   margin-top: 4px;
   font-size: 12px;
-  color: var(--color-text-tertiary);
+  color: var(--el-text-color-secondary);
+  opacity: 0.8;
+}
+
+:deep(.el-form-item__error) {
+  color: var(--el-color-error);
+  font-size: 12px;
+  padding-top: 4px;
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes shake {
+  10%, 90% {
+    transform: translateX(-2px);
+  }
+  20%, 80% {
+    transform: translateX(2px);
+  }
+  30%, 50%, 70% {
+    transform: translateX(-2px);
+  }
+  40%, 60% {
+    transform: translateX(2px);
+  }
+}
+
+/* 表单项进入动画 */
+:deep(.el-form-item) {
+  animation: fadeInLeft 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) backwards;
+}
+
+:deep(.el-form-item:nth-child(1)) {
+  animation-delay: 0.05s;
+}
+
+:deep(.el-form-item:nth-child(2)) {
+  animation-delay: 0.1s;
+}
+
+:deep(.el-form-item:nth-child(3)) {
+  animation-delay: 0.15s;
+}
+
+:deep(.el-form-item:nth-child(4)) {
+  animation-delay: 0.2s;
+}
+
+:deep(.el-form-item:nth-child(5)) {
+  animation-delay: 0.25s;
+}
+
+:deep(.el-form-item:nth-child(6)) {
+  animation-delay: 0.3s;
+}
+
+:deep(.el-form-item:nth-child(7)) {
+  animation-delay: 0.35s;
+}
+
+:deep(.el-form-item:nth-child(8)) {
+  animation-delay: 0.4s;
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 </style>
 

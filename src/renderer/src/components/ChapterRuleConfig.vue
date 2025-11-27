@@ -298,78 +298,217 @@ async function handleParse() {
 
 <style scoped>
 .chapter-rule-config {
-  padding: 20px;
-  background: var(--color-bg);
-  border-radius: 8px;
+  padding: 0;
+  background: transparent;
 }
 
 .mode-selector {
-  margin-bottom: 20px;
+  margin-bottom: 28px;
+  padding: 16px 20px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+:deep(.mode-selector .el-radio-group) {
+  display: flex;
+  gap: 16px;
+}
+
+:deep(.mode-selector .el-radio) {
+  margin-right: 0;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+:deep(.mode-selector .el-radio:hover) {
+  background: var(--el-fill-color);
+}
+
+:deep(.mode-selector .el-radio.is-checked) {
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+}
+
+.simple-rule,
+.regex-rule {
+  padding: 0;
 }
 
 .rule-item {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .rule-item label {
   display: inline-block;
   width: 120px;
   font-weight: 500;
-  color: var(--color-text-primary);
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+  margin-right: 12px;
 }
 
 .rule-hint {
-  margin-top: 4px;
+  margin-top: 8px;
   font-size: 12px;
-  color: var(--color-text-tertiary);
+  color: var(--el-text-color-secondary);
+  opacity: 0.8;
+  line-height: 1.6;
 }
 
 .error-message {
-  margin-top: 4px;
+  margin-top: 8px;
   font-size: 12px;
   color: var(--el-color-error);
+  padding: 6px 10px;
+  background: var(--el-color-error-light-9);
+  border-radius: 4px;
+  border-left: 3px solid var(--el-color-error);
 }
 
 .success-message {
-  margin-top: 4px;
+  margin-top: 8px;
   font-size: 12px;
   color: var(--el-color-success);
+  padding: 6px 10px;
+  background: var(--el-color-success-light-9);
+  border-radius: 4px;
+  border-left: 3px solid var(--el-color-success);
 }
 
 .template-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.template-buttons :deep(.el-button) {
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.template-buttons :deep(.el-button:hover) {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .rule-actions {
-  margin-top: 20px;
+  margin-top: 24px;
   display: flex;
-  gap: 10px;
+  gap: 12px;
+  padding: 20px 0;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.rule-actions :deep(.el-button) {
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.rule-actions :deep(.el-button--primary:hover) {
+  transform: translateY(-1px);
 }
 
 .test-results {
-  margin-top: 20px;
-  padding: 12px;
-  background: var(--color-bg-soft);
-  border-radius: 4px;
+  margin-top: 24px;
+  padding: 20px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .test-title {
-  font-weight: 500;
-  margin-bottom: 8px;
-  color: var(--color-text-primary);
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--el-text-color-primary);
+  font-size: 14px;
 }
 
 .match-list {
   margin: 0;
-  padding-left: 20px;
-  color: var(--color-text-secondary);
+  padding-left: 24px;
+  color: var(--el-text-color-regular);
+  line-height: 2;
 }
 
 .match-list li {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+:deep(.el-input),
+:deep(.el-select),
+:deep(.el-textarea) {
+  border-radius: 6px;
+}
+
+:deep(.el-checkbox) {
+  font-size: 14px;
+}
+
+/* 规则项进入动画 */
+.simple-rule,
+.regex-rule {
+  animation: fadeInUp 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 测试结果显示动画 */
+.test-results {
+  animation: slideIn 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 按钮点击波纹效果 */
+.rule-actions :deep(.el-button),
+.template-buttons :deep(.el-button) {
+  position: relative;
+  overflow: hidden;
+}
+
+.rule-actions :deep(.el-button::before),
+.template-buttons :deep(.el-button::before) {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.rule-actions :deep(.el-button:active::before),
+.template-buttons :deep(.el-button:active::before) {
+  width: 300px;
+  height: 300px;
 }
 </style>
 

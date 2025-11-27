@@ -1,6 +1,6 @@
 <template>
   <div class="chapter-editor">
-    <!-- 顶部：当前正则表达式 -->
+    <!-- 当前正则表达式 -->
     <div class="regex-display">
       <label>当前正则表达式:</label>
       <el-input v-model="currentRegex" readonly class="regex-input" />
@@ -70,8 +70,8 @@
             <el-input
               v-else
               v-model="editingTitle"
-              @blur="handleTitleBlur($index)"
-              @keyup.enter="handleTitleBlur($index)"
+              @blur="handleChapterTitleBlur($index)"
+              @keyup.enter="handleChapterTitleBlur($index)"
               @keyup.esc="handleTitleCancel"
               ref="titleInputRef"
               size="small"
@@ -193,8 +193,8 @@ function handleRowDoubleClick(row: Chapter, column: any, event: MouseEvent) {
   }
 }
 
-// 处理标题编辑完成
-async function handleTitleBlur(index: number) {
+// 处理章节标题编辑完成
+async function handleChapterTitleBlur(index: number) {
   if (editingIndex.value === null) return
 
   const chapter = displayChapters.value[index]
@@ -351,59 +351,151 @@ onUnmounted(() => {
   gap: 16px;
 }
 
+.book-title-editor {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.book-title-editor label {
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+  min-width: 50px;
+}
+
+.book-title-editor .el-input {
+  flex: 1;
+}
+
+.book-title-editor :deep(.el-input__inner) {
+  border-radius: 6px;
+  border-color: var(--el-border-color);
+  transition: all 0.3s ease;
+}
+
+.book-title-editor :deep(.el-input__inner:focus) {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 2px var(--el-color-primary-light-9);
+}
+
 .regex-display {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 14px 20px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 10px;
+  border: 1px solid var(--el-border-color-lighter);
 }
 
 .regex-display label {
   white-space: nowrap;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+  font-size: 13px;
 }
 
 .regex-input {
   flex: 1;
 }
 
+.regex-input :deep(.el-input__inner) {
+  background: var(--el-bg-color);
+  border-color: var(--el-border-color-lighter);
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+}
+
 .toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px;
-  background-color: var(--el-bg-color-page);
-  border-radius: 4px;
+  padding: 16px 0;
+  margin-bottom: 16px;
 }
 
 .toolbar-left,
 .toolbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+
+.toolbar :deep(.el-button) {
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.toolbar :deep(.el-button:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .lines-input,
 .line-input {
-  width: 80px;
+  width: 90px;
+}
+
+.lines-input :deep(.el-input__inner),
+.line-input :deep(.el-input__inner) {
+  border-radius: 6px;
+  text-align: center;
 }
 
 .table-container {
-  border: 1px solid var(--el-border-color);
-  border-radius: 4px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 6px;
   overflow: hidden;
+  background: var(--el-bg-color);
 }
 
 :deep(.table-container .el-table) {
   border: none;
+  background: transparent;
+}
+
+:deep(.table-container .el-table__header) {
+  background: var(--el-fill-color-lighter);
+}
+
+:deep(.table-container .el-table th) {
+  background: transparent;
+  border-bottom: 2px solid var(--el-border-color);
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+:deep(.table-container .el-table td) {
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+:deep(.table-container .el-table__row:hover) {
+  background: var(--el-fill-color-lighter);
 }
 
 .instructions {
   display: flex;
-  gap: 16px;
+  gap: 20px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
-  padding: 8px;
-  background-color: var(--el-bg-color-page);
+  padding: 12px 0;
+  margin-bottom: 16px;
+  opacity: 0.9;
+}
+
+.instructions span {
+  padding: 4px 8px;
+  background: var(--el-bg-color);
   border-radius: 4px;
+  font-weight: 500;
 }
 
 :deep(.deleted-row) {
@@ -456,6 +548,170 @@ onUnmounted(() => {
 .chapter-title.level-2 {
   font-weight: 300;
   font-size: 0.95em;
+}
+
+/* 章节编辑器进入动画 */
+.chapter-editor {
+  animation: fadeIn 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 正则显示进入动画 */
+.regex-display {
+  animation: slideDown 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 工具栏进入动画 */
+.toolbar {
+  animation: slideUp 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 表格容器进入动画 */
+.table-container {
+  animation: scaleIn 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 表格行动画 */
+:deep(.el-table__row) {
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+:deep(.el-table__row:hover) {
+  transform: translateX(4px);
+}
+
+:deep(.el-table__row.current-row) {
+  animation: rowHighlight 0.5s ease;
+}
+
+@keyframes rowHighlight {
+  0% {
+    background-color: var(--el-color-primary-light-9);
+  }
+  50% {
+    background-color: var(--el-color-primary-light-8);
+  }
+  100% {
+    background-color: var(--el-color-primary-light-9);
+  }
+}
+
+/* 章节标题编辑动画 */
+.chapter-title {
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.chapter-title:hover {
+  transform: translateX(2px);
+}
+
+/* 按钮点击动画 */
+.toolbar :deep(.el-button) {
+  position: relative;
+  overflow: hidden;
+}
+
+.toolbar :deep(.el-button::after) {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.toolbar :deep(.el-button:active::after) {
+  width: 300px;
+  height: 300px;
+}
+
+/* 操作说明动画 */
+.instructions {
+  animation: fadeInUp 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 删除行动画 */
+:deep(.deleted-row) {
+  animation: fadeOut 0.3s ease;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.6;
+  }
+}
+
+/* 短章节标记动画 */
+:deep(.short-chapter-row) {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    background-color: var(--el-warning-color-light-9);
+  }
+  50% {
+    background-color: var(--el-warning-color-light-8);
+  }
 }
 </style>
 
