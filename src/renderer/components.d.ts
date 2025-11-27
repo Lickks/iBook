@@ -19,6 +19,7 @@ declare module 'vue' {
     BookInfoForm: typeof import('./src/components/BookInfoForm.vue')['default']
     BookshelfDialog: typeof import('./src/components/BookshelfDialog.vue')['default']
     BookshelfSelector: typeof import('./src/components/BookshelfSelector.vue')['default']
+    ChapterEditor: typeof import('./src/components/ChapterEditor.vue')['default']
     ChapterPreview: typeof import('./src/components/ChapterPreview.vue')['default']
     ChapterRuleConfig: typeof import('./src/components/ChapterRuleConfig.vue')['default']
     DisplayModeToggle: typeof import('./src/components/DisplayModeToggle.vue')['default']

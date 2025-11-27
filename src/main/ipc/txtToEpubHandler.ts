@@ -2,6 +2,7 @@ import { ipcMain, IpcMainInvokeEvent, dialog, nativeImage } from 'electron'
 import * as fs from 'fs'
 import * as path from 'path'
 import { chapterParserService } from '../services/chapterParser'
+import { chapterEditorService } from '../services/chapterEditor'
 import { txtToEpubService } from '../services/txtToEpubService'
 import type { ChapterRule, Chapter, BookMetadata, EpubOptions, ImageProcessOptions } from '../../renderer/src/types/txtToEpub'
 
@@ -368,6 +369,230 @@ export function setupTxtToEpubHandlers(): void {
         return {
           success: false,
           error: error?.message || '保存 EPUB 失败'
+        }
+      }
+    }
+  )
+
+  /**
+   * 更新章节标题
+   */
+  ipcMain.handle(
+    'txtToEpub:updateChapterTitle',
+    async (_event: IpcMainInvokeEvent, chapter: any, newTitle: string) => {
+      try {
+        const cleanChapter: Chapter = {
+          index: Number(chapter.index || 1),
+          title: String(chapter.title || ''),
+          content: String(chapter.content || ''),
+          lineStart: Number(chapter.lineStart || 1),
+          lineEnd: Number(chapter.lineEnd || 1),
+          wordCount: Number(chapter.wordCount || 0),
+          level: chapter.level !== undefined ? Number(chapter.level) : 0,
+          deleted: Boolean(chapter.deleted),
+          isShortChapter: Boolean(chapter.isShortChapter)
+        }
+        const updatedChapter = chapterEditorService.updateChapterTitle(cleanChapter, newTitle)
+        return { success: true, data: updatedChapter }
+      } catch (error: any) {
+        console.error('更新章节标题失败:', error)
+        return {
+          success: false,
+          error: error?.message || '更新章节标题失败'
+        }
+      }
+    }
+  )
+
+  /**
+   * 调整章节层级
+   */
+  ipcMain.handle(
+    'txtToEpub:adjustChapterLevel',
+    async (_event: IpcMainInvokeEvent, chapter: any, level: number) => {
+      try {
+        const cleanChapter: Chapter = {
+          index: Number(chapter.index || 1),
+          title: String(chapter.title || ''),
+          content: String(chapter.content || ''),
+          lineStart: Number(chapter.lineStart || 1),
+          lineEnd: Number(chapter.lineEnd || 1),
+          wordCount: Number(chapter.wordCount || 0),
+          level: chapter.level !== undefined ? Number(chapter.level) : 0,
+          deleted: Boolean(chapter.deleted),
+          isShortChapter: Boolean(chapter.isShortChapter)
+        }
+        const updatedChapter = chapterEditorService.adjustChapterLevel(cleanChapter, level)
+        return { success: true, data: updatedChapter }
+      } catch (error: any) {
+        console.error('调整章节层级失败:', error)
+        return {
+          success: false,
+          error: error?.message || '调整章节层级失败'
+        }
+      }
+    }
+  )
+
+  /**
+   * 切换章节删除状态
+   */
+  ipcMain.handle(
+    'txtToEpub:toggleChapterDeleted',
+    async (_event: IpcMainInvokeEvent, chapter: any) => {
+      try {
+        const cleanChapter: Chapter = {
+          index: Number(chapter.index || 1),
+          title: String(chapter.title || ''),
+          content: String(chapter.content || ''),
+          lineStart: Number(chapter.lineStart || 1),
+          lineEnd: Number(chapter.lineEnd || 1),
+          wordCount: Number(chapter.wordCount || 0),
+          level: chapter.level !== undefined ? Number(chapter.level) : 0,
+          deleted: Boolean(chapter.deleted),
+          isShortChapter: Boolean(chapter.isShortChapter)
+        }
+        const updatedChapter = chapterEditorService.toggleChapterDeleted(cleanChapter)
+        return { success: true, data: updatedChapter }
+      } catch (error: any) {
+        console.error('切换章节删除状态失败:', error)
+        return {
+          success: false,
+          error: error?.message || '切换章节删除状态失败'
+        }
+      }
+    }
+  )
+
+  /**
+   * 彻底删除章节
+   */
+  ipcMain.handle(
+    'txtToEpub:deleteChapter',
+    async (_event: IpcMainInvokeEvent, chapters: any[], chapterIndex: number) => {
+      try {
+        const cleanChapters: Chapter[] = chapters.map((chapter: any) => ({
+          index: Number(chapter.index || 1),
+          title: String(chapter.title || ''),
+          content: String(chapter.content || ''),
+          lineStart: Number(chapter.lineStart || 1),
+          lineEnd: Number(chapter.lineEnd || 1),
+          wordCount: Number(chapter.wordCount || 0),
+          level: chapter.level !== undefined ? Number(chapter.level) : 0,
+          deleted: Boolean(chapter.deleted),
+          isShortChapter: Boolean(chapter.isShortChapter)
+        }))
+        const updatedChapters = chapterEditorService.deleteChapter(cleanChapters, chapterIndex)
+        return { success: true, data: updatedChapters }
+      } catch (error: any) {
+        console.error('删除章节失败:', error)
+        return {
+          success: false,
+          error: error?.message || '删除章节失败'
+        }
+      }
+    }
+  )
+
+  /**
+   * 添加新章节
+   */
+  ipcMain.handle(
+    'txtToEpub:addChapter',
+    async (_event: IpcMainInvokeEvent, chapters: any[], lineNumber: number, title?: string) => {
+      try {
+        const cleanChapters: Chapter[] = chapters.map((chapter: any) => ({
+          index: Number(chapter.index || 1),
+          title: String(chapter.title || ''),
+          content: String(chapter.content || ''),
+          lineStart: Number(chapter.lineStart || 1),
+          lineEnd: Number(chapter.lineEnd || 1),
+          wordCount: Number(chapter.wordCount || 0),
+          level: chapter.level !== undefined ? Number(chapter.level) : 0,
+          deleted: Boolean(chapter.deleted),
+          isShortChapter: Boolean(chapter.isShortChapter)
+        }))
+        const updatedChapters = chapterEditorService.addChapter(cleanChapters, lineNumber, title)
+        return { success: true, data: updatedChapters }
+      } catch (error: any) {
+        console.error('添加章节失败:', error)
+        return {
+          success: false,
+          error: error?.message || '添加章节失败'
+        }
+      }
+    }
+  )
+
+  /**
+   * 标记短章节
+   */
+  ipcMain.handle(
+    'txtToEpub:markShortChapters',
+    async (_event: IpcMainInvokeEvent, chapters: any[], maxLines: number) => {
+      try {
+        const cleanChapters: Chapter[] = chapters.map((chapter: any) => ({
+          index: Number(chapter.index || 1),
+          title: String(chapter.title || ''),
+          content: String(chapter.content || ''),
+          lineStart: Number(chapter.lineStart || 1),
+          lineEnd: Number(chapter.lineEnd || 1),
+          wordCount: Number(chapter.wordCount || 0),
+          level: chapter.level !== undefined ? Number(chapter.level) : 0,
+          deleted: Boolean(chapter.deleted),
+          isShortChapter: Boolean(chapter.isShortChapter)
+        }))
+        const updatedChapters = chapterEditorService.markShortChapters(cleanChapters, maxLines)
+        return { success: true, data: updatedChapters }
+      } catch (error: any) {
+        console.error('标记短章节失败:', error)
+        return {
+          success: false,
+          error: error?.message || '标记短章节失败'
+        }
+      }
+    }
+  )
+
+  /**
+   * 保存章节编辑
+   */
+  ipcMain.handle(
+    'txtToEpub:saveChapterEdits',
+    async (_event: IpcMainInvokeEvent, chapters: any[]) => {
+      try {
+        const cleanChapters: Chapter[] = chapters.map((chapter: any) => ({
+          index: Number(chapter.index || 1),
+          title: String(chapter.title || ''),
+          content: String(chapter.content || ''),
+          lineStart: Number(chapter.lineStart || 1),
+          lineEnd: Number(chapter.lineEnd || 1),
+          wordCount: Number(chapter.wordCount || 0),
+          level: chapter.level !== undefined ? Number(chapter.level) : 0,
+          deleted: Boolean(chapter.deleted),
+          isShortChapter: Boolean(chapter.isShortChapter)
+        }))
+        
+        // 验证章节
+        const validation = chapterEditorService.validateChapters(cleanChapters)
+        if (!validation.valid) {
+          return {
+            success: false,
+            error: validation.errors?.join('; ') || '章节验证失败'
+          }
+        }
+
+        // 重新计算索引
+        const updatedChapters = chapterEditorService.recalculateIndices(
+          cleanChapters.filter((chapter) => !chapter.deleted)
+        )
+
+        return { success: true, data: updatedChapters }
+      } catch (error: any) {
+        console.error('保存章节编辑失败:', error)
+        return {
+          success: false,
+          error: error?.message || '保存章节编辑失败'
         }
       }
     }

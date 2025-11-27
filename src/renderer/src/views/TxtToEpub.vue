@@ -14,7 +14,7 @@ import {
 import { Document, Upload, Picture } from '@element-plus/icons-vue'
 import { useTxtToEpubStore } from '../stores/txtToEpub'
 import ChapterRuleConfig from '../components/ChapterRuleConfig.vue'
-import ChapterPreview from '../components/ChapterPreview.vue'
+import ChapterEditor from '../components/ChapterEditor.vue'
 import BookInfoForm from '../components/BookInfoForm.vue'
 
 const store = useTxtToEpubStore()
@@ -26,7 +26,7 @@ const bookInfoFormRef = ref<InstanceType<typeof BookInfoForm> | null>(null)
 const steps = [
   { title: '选择文件', description: '选择要转换的 TXT 文件' },
   { title: '配置规则', description: '配置章节划分规则' },
-  { title: '预览章节', description: '预览和编辑章节' },
+  { title: '编辑章节', description: '编辑章节信息' },
   { title: '书籍信息', description: '填写书籍元数据' },
   { title: '上传封面', description: '上传封面图片（可选）' }
 ]
@@ -63,6 +63,37 @@ async function handleSelectFile() {
 
 // 下一步
 async function handleNext() {
+  // 从步骤1（配置规则）进入步骤2（编辑章节）时，自动解析章节
+  if (currentStep.value === 1) {
+    try {
+      // 确保规则已从 localStorage 加载（如果用户修改了规则但还没保存）
+      const savedRule = localStorage.getItem('txtToEpub_chapterRule')
+      if (savedRule) {
+        try {
+          const rule = JSON.parse(savedRule) as any
+          if (rule.additionalRules && rule.additionalRules.trim() === '') {
+            rule.additionalRules = '序言|序卷|序[1-9]|序曲|楔子|前言|后记|尾声|番外|最终章'
+          }
+          store.chapterRule = rule
+        } catch (error) {
+          console.warn('加载规则失败:', error)
+        }
+      }
+      
+      // 等待规则同步完成
+      await new Promise(resolve => setTimeout(resolve, 0))
+      
+      await store.parseChapters()
+      if (store.chapters.length === 0) {
+        ElMessage.warning('未找到匹配的章节，请检查规则配置')
+        return
+      }
+    } catch (error) {
+      // 错误已在 store 中处理
+      return
+    }
+  }
+
   if (currentStep.value === 3) {
     // 验证表单
     if (bookInfoFormRef.value) {
@@ -229,9 +260,9 @@ onMounted(() => {
         <ChapterRuleConfig />
       </div>
 
-      <!-- 步骤 3: 预览章节 -->
+      <!-- 步骤 3: 编辑章节 -->
       <div v-if="currentStep === 2" class="step-content">
-        <ChapterPreview />
+        <ChapterEditor />
       </div>
 
       <!-- 步骤 4: 书籍信息 -->

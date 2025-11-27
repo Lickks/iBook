@@ -1,12 +1,59 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { ElRadioGroup, ElRadio, ElCheckbox, ElSelect, ElOption, ElInput, ElButton, ElMessage } from 'element-plus'
 import { useTxtToEpubStore } from '../stores/txtToEpub'
 import type { ChapterRule } from '../types/txtToEpub'
 
 const store = useTxtToEpubStore()
 
-const rule = ref<ChapterRule>({ ...store.chapterRule })
+// localStorage 键名
+const STORAGE_KEY = 'txtToEpub_chapterRule'
+
+// 预设的附加规则
+const PRESET_ADDITIONAL_RULES = '序言|序卷|序[1-9]|序曲|楔子|前言|后记|尾声|番外|最终章|引子|引言|导言|跋|附记|补记|附录|外传|别传|前篇|后篇'
+
+// 从 localStorage 加载规则
+function loadRuleFromStorage(): ChapterRule | null {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      return JSON.parse(saved) as ChapterRule
+    }
+  } catch (error) {
+    console.warn('加载保存的规则失败:', error)
+  }
+  return null
+}
+
+// 保存规则到 localStorage
+function saveRuleToStorage(rule: ChapterRule) {
+  try {
+    const serializableRule: ChapterRule = {
+      mode: rule.mode,
+      allowLeadingSpaces: rule.allowLeadingSpaces,
+      ordinalPrefix: rule.ordinalPrefix,
+      numberType: rule.numberType,
+      chapterMarker: rule.chapterMarker,
+      additionalRules: rule.additionalRules,
+      regex: rule.regex
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializableRule))
+  } catch (error) {
+    console.warn('保存规则失败:', error)
+  }
+}
+
+// 初始化规则：优先使用保存的规则，否则使用 store 中的规则
+const savedRule = loadRuleFromStorage()
+const initialRule = savedRule || { ...store.chapterRule }
+
+// 如果附加规则为空（无论是从保存的规则还是 store 中加载），自动填入预设值
+// 但如果用户之前保存的规则中有附加规则（不为空），则使用保存的值
+if (!initialRule.additionalRules || initialRule.additionalRules.trim() === '') {
+  initialRule.additionalRules = PRESET_ADDITIONAL_RULES
+}
+
+const rule = ref<ChapterRule>(initialRule)
 
 // 正则表达式相关
 const regexInput = ref(rule.value.regex || '')
@@ -23,12 +70,12 @@ const regexTemplates = [
   { label: '无前缀章节', value: '^\\s*第\\d+[章节回卷]' }
 ]
 
-// 监听规则变化，同步到 store
+// 监听规则变化，同步到 store 并保存到 localStorage
 watch(
   rule,
   (newRule) => {
     // 创建一个完全干净的纯对象，确保可序列化
-    store.chapterRule = {
+    const cleanRule: ChapterRule = {
       mode: newRule.mode,
       allowLeadingSpaces: newRule.allowLeadingSpaces,
       ordinalPrefix: newRule.ordinalPrefix,
@@ -37,9 +84,19 @@ watch(
       additionalRules: newRule.additionalRules,
       regex: newRule.regex
     }
+    store.chapterRule = cleanRule
+    // 保存到 localStorage
+    saveRuleToStorage(cleanRule)
   },
   { deep: true }
 )
+
+// 组件挂载时，如果 store 中有规则但 localStorage 中没有，则保存当前规则
+onMounted(() => {
+  if (!savedRule && store.chapterRule.mode) {
+    saveRuleToStorage(store.chapterRule)
+  }
+})
 
 // 监听模式切换
 watch(
@@ -97,6 +154,22 @@ function applyTemplate(template: string) {
 
 // 解析章节（当规则变化时）
 async function handleParse() {
+  // 确保规则已同步到 store
+  const cleanRule: ChapterRule = {
+    mode: rule.value.mode,
+    allowLeadingSpaces: rule.value.allowLeadingSpaces,
+    ordinalPrefix: rule.value.ordinalPrefix,
+    numberType: rule.value.numberType,
+    chapterMarker: rule.value.chapterMarker,
+    additionalRules: rule.value.additionalRules,
+    regex: rule.value.regex
+  }
+  store.chapterRule = cleanRule
+  saveRuleToStorage(cleanRule)
+  
+  // 等待下一个 tick 确保规则已同步
+  await new Promise(resolve => setTimeout(resolve, 0))
+  
   await store.parseChapters()
 }
 </script>
@@ -151,6 +224,7 @@ async function handleParse() {
           <el-option label="节" value="节" />
           <el-option label="集" value="集" />
           <el-option label="部" value="部" />
+          <el-option label="章回卷节集部" value="章回卷节集部" />
           <el-option label="无" value="" />
           <el-option label="自定义" value="custom" />
         </el-select>

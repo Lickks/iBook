@@ -174,7 +174,22 @@ const api = {
     ): Promise<ApiResponse<string>> =>
       ipcRenderer.invoke('txtToEpub:generateEpub', chapters, metadata, coverImagePath),
     saveEpub: (epubPath: string, defaultFileName?: string): Promise<ApiResponse<string>> =>
-      ipcRenderer.invoke('txtToEpub:saveEpub', epubPath, defaultFileName)
+      ipcRenderer.invoke('txtToEpub:saveEpub', epubPath, defaultFileName),
+    // 章节编辑操作
+    updateChapterTitle: (chapter: Chapter, newTitle: string): Promise<ApiResponse<Chapter>> =>
+      ipcRenderer.invoke('txtToEpub:updateChapterTitle', chapter, newTitle),
+    adjustChapterLevel: (chapter: Chapter, level: number): Promise<ApiResponse<Chapter>> =>
+      ipcRenderer.invoke('txtToEpub:adjustChapterLevel', chapter, level),
+    toggleChapterDeleted: (chapter: Chapter): Promise<ApiResponse<Chapter>> =>
+      ipcRenderer.invoke('txtToEpub:toggleChapterDeleted', chapter),
+    deleteChapter: (chapters: Chapter[], chapterIndex: number): Promise<ApiResponse<Chapter[]>> =>
+      ipcRenderer.invoke('txtToEpub:deleteChapter', chapters, chapterIndex),
+    addChapter: (chapters: Chapter[], lineNumber: number, title?: string): Promise<ApiResponse<Chapter[]>> =>
+      ipcRenderer.invoke('txtToEpub:addChapter', chapters, lineNumber, title),
+    markShortChapters: (chapters: Chapter[], maxLines: number): Promise<ApiResponse<Chapter[]>> =>
+      ipcRenderer.invoke('txtToEpub:markShortChapters', chapters, maxLines),
+    saveChapterEdits: (chapters: Chapter[]): Promise<ApiResponse<Chapter[]>> =>
+      ipcRenderer.invoke('txtToEpub:saveChapterEdits', chapters)
   }
 }
 

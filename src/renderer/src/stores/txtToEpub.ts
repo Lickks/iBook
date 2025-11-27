@@ -14,14 +14,34 @@ export const useTxtToEpubStore = defineStore('txtToEpub', () => {
   const fileEncoding = ref<string>('utf-8')
   const fileName = ref<string>('')
 
-  // 章节规则
-  const chapterRule = ref<ChapterRule>({
-    mode: 'simple',
-    allowLeadingSpaces: true,
-    ordinalPrefix: '第',
-    numberType: 'mixed',
-    chapterMarker: '章'
-  })
+  // 从 localStorage 加载规则
+  function loadChapterRuleFromStorage(): ChapterRule {
+    try {
+      const saved = localStorage.getItem('txtToEpub_chapterRule')
+      if (saved) {
+        const rule = JSON.parse(saved) as ChapterRule
+        // 如果附加规则为空，自动填入预设值
+        if (!rule.additionalRules || rule.additionalRules.trim() === '') {
+          rule.additionalRules = '序言|序卷|序[1-9]|序曲|楔子|前言|后记|尾声|番外|最终章'
+        }
+        return rule
+      }
+    } catch (error) {
+      console.warn('加载保存的规则失败:', error)
+    }
+    // 默认规则
+    return {
+      mode: 'simple',
+      allowLeadingSpaces: true,
+      ordinalPrefix: '第',
+      numberType: 'mixed',
+      chapterMarker: '章',
+      additionalRules: '序言|序卷|序[1-9]|序曲|楔子|前言|后记|尾声|番外|最终章'
+    }
+  }
+
+  // 章节规则（从 localStorage 加载或使用默认值）
+  const chapterRule = ref<ChapterRule>(loadChapterRuleFromStorage())
 
   // 章节列表
   const chapters = ref<Chapter[]>([])
@@ -173,7 +193,10 @@ export const useTxtToEpubStore = defineStore('txtToEpub', () => {
    * 生成 EPUB
    */
   async function generateEpub(): Promise<string> {
-    if (chapters.value.length === 0) {
+    // 过滤掉已删除的章节
+    const activeChapters = chapters.value.filter((chapter) => !chapter.deleted)
+    
+    if (activeChapters.length === 0) {
       throw new Error('请先解析章节')
     }
 
@@ -190,7 +213,7 @@ export const useTxtToEpubStore = defineStore('txtToEpub', () => {
       }
 
       const epubPath = await txtToEpubApi.generateEpub(
-        chapters.value,
+        activeChapters,
         metadata.value,
         processedCoverImagePath.value || undefined
       )
@@ -370,6 +393,105 @@ export const useTxtToEpubStore = defineStore('txtToEpub', () => {
   }
 
   /**
+   * 更新章节标题（通过 API）
+   */
+  async function updateChapterTitleApi(chapter: Chapter, newTitle: string): Promise<void> {
+    try {
+      const updatedChapter = await txtToEpubApi.updateChapterTitle(chapter, newTitle)
+      const index = chapters.value.findIndex((ch) => ch.index === chapter.index)
+      if (index >= 0) {
+        chapters.value[index] = updatedChapter
+      }
+    } catch (error: any) {
+      ElMessage.error(error.message || '更新章节标题失败')
+      throw error
+    }
+  }
+
+  /**
+   * 调整章节层级
+   */
+  async function adjustChapterLevelApi(chapter: Chapter, level: number): Promise<void> {
+    try {
+      const updatedChapter = await txtToEpubApi.adjustChapterLevel(chapter, level)
+      const index = chapters.value.findIndex((ch) => ch.index === chapter.index)
+      if (index >= 0) {
+        chapters.value[index] = updatedChapter
+      }
+    } catch (error: any) {
+      ElMessage.error(error.message || '调整章节层级失败')
+      throw error
+    }
+  }
+
+  /**
+   * 切换章节删除状态
+   */
+  async function toggleChapterDeletedApi(chapter: Chapter): Promise<void> {
+    try {
+      const updatedChapter = await txtToEpubApi.toggleChapterDeleted(chapter)
+      const index = chapters.value.findIndex((ch) => ch.index === chapter.index)
+      if (index >= 0) {
+        chapters.value[index] = updatedChapter
+      }
+    } catch (error: any) {
+      ElMessage.error(error.message || '切换章节删除状态失败')
+      throw error
+    }
+  }
+
+  /**
+   * 彻底删除章节
+   */
+  async function deleteChapterApi(chapterIndex: number): Promise<void> {
+    try {
+      chapters.value = await txtToEpubApi.deleteChapter(chapters.value, chapterIndex)
+      ElMessage.success('章节删除成功')
+    } catch (error: any) {
+      ElMessage.error(error.message || '删除章节失败')
+      throw error
+    }
+  }
+
+  /**
+   * 添加新章节
+   */
+  async function addChapterApi(lineNumber: number, title?: string): Promise<void> {
+    try {
+      chapters.value = await txtToEpubApi.addChapter(chapters.value, lineNumber, title)
+      ElMessage.success('章节添加成功')
+    } catch (error: any) {
+      ElMessage.error(error.message || '添加章节失败')
+      throw error
+    }
+  }
+
+  /**
+   * 标记短章节
+   */
+  async function markShortChaptersApi(maxLines: number): Promise<void> {
+    try {
+      chapters.value = await txtToEpubApi.markShortChapters(chapters.value, maxLines)
+    } catch (error: any) {
+      ElMessage.error(error.message || '标记短章节失败')
+      throw error
+    }
+  }
+
+  /**
+   * 保存章节编辑
+   */
+  async function saveChapterEditsApi(): Promise<void> {
+    try {
+      chapters.value = await txtToEpubApi.saveChapterEdits(chapters.value)
+      ElMessage.success('章节编辑保存成功')
+    } catch (error: any) {
+      ElMessage.error(error.message || '保存章节编辑失败')
+      throw error
+    }
+  }
+
+  /**
    * 重置状态
    */
   function reset(): void {
@@ -424,6 +546,13 @@ export const useTxtToEpubStore = defineStore('txtToEpub', () => {
     updateChapterTitle,
     moveChapterUp,
     moveChapterDown,
+    updateChapterTitleApi,
+    adjustChapterLevelApi,
+    toggleChapterDeletedApi,
+    deleteChapterApi,
+    addChapterApi,
+    markShortChaptersApi,
+    saveChapterEditsApi,
     reset
   }
 })

@@ -6,6 +6,23 @@ import type { ChapterRule, Chapter, BookMetadata, ImageProcessOptions } from '..
 import type { ApiResponse } from '../types/api'
 
 /**
+ * 序列化章节对象，确保只包含可序列化的数据
+ */
+function serializeChapter(chapter: Chapter): Record<string, any> {
+  return {
+    index: chapter.index,
+    title: chapter.title,
+    content: chapter.content,
+    lineStart: chapter.lineStart,
+    lineEnd: chapter.lineEnd,
+    wordCount: chapter.wordCount,
+    level: chapter.level ?? 0,
+    deleted: chapter.deleted ?? false,
+    isShortChapter: chapter.isShortChapter ?? false
+  }
+}
+
+/**
  * 选择 TXT 文件
  */
 export async function selectTxtFile(): Promise<string> {
@@ -157,5 +174,86 @@ export async function saveEpub(epubPath: string, defaultFileName?: string): Prom
     return response.data
   }
   throw new Error(response.error || '保存 EPUB 失败')
+}
+
+/**
+ * 更新章节标题
+ */
+export async function updateChapterTitle(chapter: Chapter, newTitle: string): Promise<Chapter> {
+  const response = await window.api.txtToEpub.updateChapterTitle(serializeChapter(chapter), newTitle)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '更新章节标题失败')
+}
+
+/**
+ * 调整章节层级
+ */
+export async function adjustChapterLevel(chapter: Chapter, level: number): Promise<Chapter> {
+  const response = await window.api.txtToEpub.adjustChapterLevel(serializeChapter(chapter), level)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '调整章节层级失败')
+}
+
+/**
+ * 切换章节删除状态
+ */
+export async function toggleChapterDeleted(chapter: Chapter): Promise<Chapter> {
+  const response = await window.api.txtToEpub.toggleChapterDeleted(serializeChapter(chapter))
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '切换章节删除状态失败')
+}
+
+/**
+ * 彻底删除章节
+ */
+export async function deleteChapter(chapters: Chapter[], chapterIndex: number): Promise<Chapter[]> {
+  const response = await window.api.txtToEpub.deleteChapter(chapters, chapterIndex)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '删除章节失败')
+}
+
+/**
+ * 添加新章节
+ */
+export async function addChapter(
+  chapters: Chapter[],
+  lineNumber: number,
+  title?: string
+): Promise<Chapter[]> {
+  const response = await window.api.txtToEpub.addChapter(chapters, lineNumber, title)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '添加章节失败')
+}
+
+/**
+ * 标记短章节
+ */
+export async function markShortChapters(chapters: Chapter[], maxLines: number): Promise<Chapter[]> {
+  const response = await window.api.txtToEpub.markShortChapters(chapters, maxLines)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '标记短章节失败')
+}
+
+/**
+ * 保存章节编辑
+ */
+export async function saveChapterEdits(chapters: Chapter[]): Promise<Chapter[]> {
+  const response = await window.api.txtToEpub.saveChapterEdits(chapters)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || '保存章节编辑失败')
 }
 

@@ -40,6 +40,12 @@ export interface Chapter {
   wordCount: number
   /** 是否选中（用于多选操作） */
   selected?: boolean
+  /** 层级（0为顶级，1为二级，以此类推） */
+  level?: number
+  /** 是否已删除（逻辑删除） */
+  deleted?: boolean
+  /** 是否为短章节（行数不超过阈值） */
+  isShortChapter?: boolean
 }
 
 /**

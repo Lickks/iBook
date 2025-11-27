@@ -31,14 +31,19 @@ class ChapterParserService {
           // 如果已有章节，先保存
           if (currentChapter) {
             const chapterContent = currentChapter.content.join('\n')
-            chapters.push({
+            const level = this.detectChapterLevel(currentChapter.title)
+            const chapter: Chapter = {
               index: chapters.length + 1,
               title: currentChapter.title,
               content: chapterContent,
               lineStart: currentChapter.lineStart,
               lineEnd: lineNumber - 1,
-              wordCount: this.countWords(chapterContent)
-            })
+              wordCount: this.countWords(chapterContent),
+              level: level,
+              deleted: false,
+              isShortChapter: false
+            }
+            chapters.push(chapter)
           }
 
           // 创建新章节
@@ -58,14 +63,19 @@ class ChapterParserService {
       // 处理最后一个章节
       if (currentChapter) {
         const chapterContent = currentChapter.content.join('\n')
-        chapters.push({
+        const level = this.detectChapterLevel(currentChapter.title)
+        const chapter: Chapter = {
           index: chapters.length + 1,
           title: currentChapter.title,
           content: chapterContent,
           lineStart: currentChapter.lineStart,
           lineEnd: lines.length,
-          wordCount: this.countWords(chapterContent)
-        })
+          wordCount: this.countWords(chapterContent),
+          level: level,
+          deleted: false,
+          isShortChapter: false
+        }
+        chapters.push(chapter)
       }
 
       // 如果没有匹配到任何章节，将整个文件作为单章节
@@ -76,14 +86,96 @@ class ChapterParserService {
           content: content,
           lineStart: 1,
           lineEnd: lines.length,
-          wordCount: this.countWords(content)
+          wordCount: this.countWords(content),
+          level: 0,
+          deleted: false,
+          isShortChapter: false
         })
       }
+
+      // 根据章节间的相对关系调整层级（确保层级关系正确）
+      this.adjustChapterLevels(chapters)
 
       return chapters
     } catch (error: any) {
       throw new Error(`章节解析失败: ${error.message}`)
     }
+  }
+
+  /**
+   * 根据章节间的相对关系调整层级
+   * 确保层级关系正确（例如：卷下的章应该是 level 1）
+   * @param chapters 章节列表
+   */
+  private adjustChapterLevels(chapters: Chapter[]): void {
+    if (chapters.length === 0) return
+
+    // 重新检测所有章节的层级，确保使用最新的检测逻辑
+    for (const chapter of chapters) {
+      chapter.level = this.detectChapterLevel(chapter.title)
+    }
+  }
+
+  /**
+   * 检测章节层级
+   * 根据章节标题中的标识符确定层级
+   * @param title 章节标题
+   * @returns 层级（0为顶级，1为二级，以此类推）
+   */
+  private detectChapterLevel(title: string): number {
+    // 层级定义：根据章节标识符确定层级
+    // 卷、部 → level 0（顶级）
+    // 章、回 → level 1（二级）
+    // 节、集 → level 2（三级）
+    
+    const trimmedTitle = title.trim()
+    
+    // 优先检测包含"第"字的完整模式（更精确）
+    // 匹配：第 + 数字/中文数字 + 卷/部（后面可以有空格和其他内容）
+    const volumePattern = /第[\d一二三四五六七八九十百千万]+[卷部]/
+    if (volumePattern.test(trimmedTitle)) {
+      return 0 // 顶级：第一卷、第一部、第一卷 xxx
+    }
+    
+    // 匹配：第 + 数字/中文数字 + 章/回（后面可以有空格和其他内容）
+    const chapterPattern = /第[\d一二三四五六七八九十百千万]+[章回]/
+    if (chapterPattern.test(trimmedTitle)) {
+      return 1 // 二级：第一章、第一回、第一章 xxx
+    }
+    
+    // 匹配：第 + 数字/中文数字 + 节/集（后面可以有空格和其他内容）
+    const sectionPattern = /第[\d一二三四五六七八九十百千万]+[节集]/
+    if (sectionPattern.test(trimmedTitle)) {
+      return 2 // 三级：第一节、第一集
+    }
+    
+    // 检测不包含"第"字的章节标题
+    if (/^[序卷部]/.test(trimmedTitle) || 
+        /^序[言卷曲]/.test(trimmedTitle) || 
+        /^[前言后记尾声番外楔子最终章引子引言导言跋附记补记附录外传别传前篇后篇]/.test(trimmedTitle)) {
+      return 0 // 顶级：序、卷、部、序言、序卷、前言、后记、引子、引言、导言、跋、附记、补记、附录、外传、别传、前篇、后篇等
+    } else if (/^[章回]/.test(trimmedTitle)) {
+      return 1 // 二级：章、回（无"第"字的情况）
+    } else if (/^[节集]/.test(trimmedTitle)) {
+      return 2 // 三级：节、集（无"第"字的情况）
+    }
+    
+    // 检测是否包含层级标识符（即使不在开头，但优先级较低）
+    // 如果标题中包含"卷"或"部"，且不包含"章"、"回"、"节"、"集"，则为顶级
+    if (/[卷部]/.test(trimmedTitle) && !/[章回节集]/.test(trimmedTitle)) {
+      return 0
+    }
+    // 如果标题中包含"章"或"回"，且不包含"节"或"集"，则为二级
+    if (/[章回]/.test(trimmedTitle) && !/[节集]/.test(trimmedTitle)) {
+      return 1
+    }
+    // 如果标题中包含"节"或"集"，则为三级
+    if (/[节集]/.test(trimmedTitle)) {
+      return 2
+    }
+    
+    // 默认层级为 0
+    return 0
   }
 
   /**
@@ -123,7 +215,12 @@ class ChapterParserService {
 
     // 章节标识
     if (rule.chapterMarker && rule.chapterMarker !== '无' && rule.chapterMarker !== '') {
-      pattern += this.escapeRegex(rule.chapterMarker)
+      // 特殊处理"章回卷节集部"，转换为字符类匹配任意一个
+      if (rule.chapterMarker === '章回卷节集部') {
+        pattern += '[章回卷节集部]'
+      } else {
+        pattern += this.escapeRegex(rule.chapterMarker)
+      }
     }
 
     // 附加规则
