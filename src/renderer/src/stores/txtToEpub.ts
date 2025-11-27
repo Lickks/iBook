@@ -86,19 +86,28 @@ export const useTxtToEpubStore = defineStore('txtToEpub', () => {
       const pathParts = path.split(/[/\\]/)
       fileName.value = pathParts[pathParts.length - 1] || ''
 
-      // 检测编码
-      fileEncoding.value = await txtToEpubApi.detectEncoding(path)
-
-      // 读取文件内容
-      fileContent.value = await txtToEpubApi.readFile(path)
-
       // 自动填充书名（从文件名提取）
       if (!metadata.value.title) {
         const nameWithoutExt = fileName.value.replace(/\.txt$/i, '')
         metadata.value.title = nameWithoutExt
       }
 
-      ElMessage.success('文件加载成功')
+      // 异步检测编码和读取文件内容（不阻塞界面）
+      ;(async () => {
+        try {
+          const [encoding, content] = await Promise.all([
+            txtToEpubApi.detectEncoding(path),
+            txtToEpubApi.readFile(path)
+          ])
+          fileEncoding.value = encoding
+          fileContent.value = content
+        } catch (error: any) {
+          console.error('后台加载文件失败:', error)
+          // 不显示错误，让用户可以先进入配置规则界面
+        }
+      })()
+
+      ElMessage.success('文件选择成功，正在后台加载...')
     } catch (error: any) {
       ElMessage.error(error.message || '选择文件失败')
       throw error

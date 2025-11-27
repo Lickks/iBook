@@ -73,6 +73,16 @@ class TxtToEpubService {
    */
   async generateEpub(options: EpubOptions): Promise<string> {
     try {
+      const totalChapters = options.chapters.length
+      
+      // 批量生成章节 HTML（优化性能，使用批量处理）
+      const chapterContents = options.chapters.map((chapter) => {
+        return {
+          title: chapter.title,
+          data: this.generateChapterHtml(chapter)
+        }
+      })
+
       // 准备 epub-gen 的选项
       const epubOptions: any = {
         title: options.metadata.title,
@@ -80,10 +90,7 @@ class TxtToEpubService {
         publisher: options.metadata.publisher || '',
         description: options.metadata.description || '',
         lang: options.metadata.language || 'zh-CN',
-        content: options.chapters.map((chapter) => ({
-          title: chapter.title,
-          data: this.generateChapterHtml(chapter)
-        })),
+        content: chapterContents,
         output: options.outputPath
       }
 
@@ -142,8 +149,24 @@ class TxtToEpubService {
       return text.replace(/[&<>"']/g, (m) => map[m])
     }
 
+    // 检查章节内容开头是否已经包含标题行，如果包含则移除
+    const contentLines = chapter.content.split(/\r?\n/)
+    const firstLine = contentLines[0]?.trim() || ''
+    const chapterTitle = chapter.title.trim()
+    
+    // 如果内容第一行与章节标题完全相同，则移除这一行
+    // 这样可以避免章节标题行既作为标题又出现在正文中
+    let processedContent = chapter.content
+    if (firstLine === chapterTitle && contentLines.length > 1) {
+      // 移除第一行（标题行）
+      processedContent = contentLines.slice(1).join('\n')
+    } else if (firstLine === chapterTitle && contentLines.length === 1) {
+      // 如果只有一行且是标题，则内容为空
+      processedContent = ''
+    }
+
     // 将文本转换为 HTML，保留段落结构
-    const content = escapeHtml(chapter.content)
+    const content = escapeHtml(processedContent)
       .split(/\r?\n\r?\n/) // 按空行分割段落
       .map((para) => {
         if (para.trim()) {
@@ -164,21 +187,37 @@ class TxtToEpubService {
   <title>${escapeHtml(chapter.title)}</title>
   <style type="text/css">
     body {
-      font-family: "Microsoft YaHei", "SimSun", serif;
-      font-size: 1.2em;
-      line-height: 1.8;
-      margin: 1em;
-      padding: 0;
+      font-family: "Microsoft YaHei", "SimHei", "SimSun", "STSong", "STKaiti", "KaiTi", serif;
+      font-size: 1.1em;
+      line-height: 2.0;
+      margin: 0;
+      padding: 1.5em 1.2em;
+      color: #333;
+      background-color: #fff;
+      max-width: 100%;
+      word-wrap: break-word;
+      word-break: break-all;
     }
     h1 {
-      font-size: 1.5em;
+      font-size: 1.6em;
       text-align: center;
-      margin: 1em 0;
+      margin: 1.5em 0 1.2em 0;
       font-weight: bold;
+      color: #2c3e50;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 0.8em;
     }
     p {
       text-indent: 2em;
-      margin: 0.5em 0;
+      margin: 0.8em 0;
+      text-align: justify;
+      letter-spacing: 0.05em;
+    }
+    p:first-of-type {
+      margin-top: 1.2em;
+    }
+    p:last-of-type {
+      margin-bottom: 1.5em;
     }
   </style>
 </head>

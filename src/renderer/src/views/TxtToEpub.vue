@@ -66,6 +66,26 @@ async function handleNext() {
   // 从步骤1（配置规则）进入步骤2（编辑章节）时，自动解析章节
   if (currentStep.value === 1) {
     try {
+      // 确保文件内容已加载
+      if (!store.fileContent) {
+        if (store.filePath) {
+          ElMessage.info('正在加载文件内容，请稍候...')
+          // 等待文件内容加载完成（最多等待5秒）
+          let waitCount = 0
+          while (!store.fileContent && waitCount < 50) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+            waitCount++
+          }
+          if (!store.fileContent) {
+            ElMessage.warning('文件加载超时，请重试')
+            return
+          }
+        } else {
+          ElMessage.warning('请先选择文件')
+          return
+        }
+      }
+
       // 确保规则已从 localStorage 加载（如果用户修改了规则但还没保存）
       const savedRule = localStorage.getItem('txtToEpub_chapterRule')
       if (savedRule) {
