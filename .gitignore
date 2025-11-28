@@ -90,3 +90,10 @@ temp/
 builder-effective-config.yaml
 builder-debug.yml
 
+# Development temporary documents (已完成的开发任务文档)
+docs/TODO.md
+docs/开发任务清单.md
+docs/完成情况总结.md
+docs/TXT转EPUB需求分析.md
+docs/youshu-book-detail-html-structure.md
+
