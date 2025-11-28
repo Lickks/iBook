@@ -219,12 +219,17 @@ async function handleRestoreCompletion(): Promise<void> {
     // 6. 等待响应式更新
     await nextTick()
     
-    // 7. 若不在首页则跳转后再刷新
-    if (route.name !== 'Home') {
-      await router.push('/')
-      await nextTick()
-      await bookStore.fetchBooks()
-    }
+    // 7. 无论当前在哪个页面，都强制跳转到首页
+    // 使用 push 并添加时间戳参数，确保路由变化
+    const timestamp = Date.now()
+    await router.push({ path: '/', query: { refresh: timestamp.toString() } })
+    await nextTick()
+    
+    // 8. 跳转后再次刷新书籍列表，确保数据是最新的
+    await bookStore.fetchBooks()
+    
+    // 9. 再等待一次响应式更新，确保 UI 已更新
+    await nextTick()
     
     ElMessage.success('数据恢复完成，已跳转到书籍列表页')
   } catch (error: any) {
@@ -316,7 +321,8 @@ async function handleRestore() {
         progress: 100,
         message: '恢复完成'
       }
-    
+      // 直接调用刷新和跳转逻辑，确保可靠性
+      // onRestoreComplete 监听器也会触发，但 hasHandledRestoreCompletion 标志会防止重复执行
       await handleRestoreCompletion()
     } else {
       ElMessage.error(result.error || '恢复失败')
