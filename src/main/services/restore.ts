@@ -173,7 +173,7 @@ class RestoreService {
       // 如果没有提供备份路径，弹出对话框
       if (!backupPath) {
         const mainWindow = BrowserWindow.getFocusedWindow()
-        const result = await dialog.showOpenDialog(mainWindow || undefined, {
+        const result = await dialog.showOpenDialog(mainWindow ?? BrowserWindow.getAllWindows()[0], {
           title: '选择备份文件',
           filters: [{ name: 'iBook 备份文件', extensions: ['ibook'] }],
           properties: ['openFile']

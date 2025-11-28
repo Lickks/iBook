@@ -912,17 +912,43 @@ watch(
 .primary-btn {
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark, #5a67d8));
   color: white;
-  border: none;
+  border: 1px solid;
   padding: 10px 20px;
   border-radius: 999px;
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s;
+  box-shadow: 0 0 0 1px;
+}
+
+/* 亮色模式下的按钮样式 */
+.light .primary-btn {
+  color: var(--color-text-primary);
+  border-color: #000000;
+  box-shadow: 0 0 0 1px #000000;
+}
+
+/* 暗色模式下的按钮样式 */
+.dark .primary-btn {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px #ffffff;
 }
 
 .primary-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3), 0 0 0 1px;
+}
+
+/* 亮色模式下的悬停状态 */
+.light .primary-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3), 0 0 0 1px #000000;
+  border-color: #000000;
+}
+
+/* 暗色模式下的悬停状态 */
+.dark .primary-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3), 0 0 0 1px #ffffff;
+  border-color: #ffffff;
 }
 
 .primary-btn:disabled {
@@ -962,11 +988,31 @@ watch(
   flex-shrink: 0;
 }
 
+/* 亮色模式下的文档图标 */
+.light .doc-icon {
+  background: var(--color-bg-muted);
+}
+
+/* 暗色模式下的文档图标 */
+.dark .doc-icon {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+}
+
 .doc-icon span {
   color: white;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.5px;
+}
+
+/* 亮色模式下的文档类型文字 */
+.light .doc-icon span {
+  color: var(--color-text-primary);
+}
+
+/* 暗色模式下的文档类型文字 */
+.dark .doc-icon span {
+  color: white;
 }
 
 .doc-info {

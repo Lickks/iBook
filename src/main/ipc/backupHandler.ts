@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { backupService } from '../services/backup'
 import { restoreService } from '../services/restore'
-import type { BackupProgress, BackupMetadata } from '../services/backup'
+import type { BackupProgress } from '../services/backup'
 import type { RestoreProgress } from '../services/restore'
 
 /**
@@ -112,7 +112,7 @@ export function setupBackupHandlers(): void {
   /**
    * 验证备份文件
    */
-  ipcMain.handle('backup:validate', async (event, backupPath: string) => {
+  ipcMain.handle('backup:validate', async (_event, backupPath: string) => {
     try {
       const validation = restoreService.validateBackup(backupPath)
       return validation
@@ -127,7 +127,7 @@ export function setupBackupHandlers(): void {
   /**
    * 获取备份文件信息
    */
-  ipcMain.handle('backup:getInfo', async (event, backupPath: string) => {
+  ipcMain.handle('backup:getInfo', async (_event, backupPath: string) => {
     try {
       const info = restoreService.getBackupInfo(backupPath)
       if (!info) {

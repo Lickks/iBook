@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: temp-book-store
+appId: com.ibook.app
+productName: iBook
 directories:
   buildResources: build
 files:
@@ -9,16 +9,47 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  # 排除 node_modules 中的不必要文件
+  - '!**/node_modules/**/{CHANGELOG.md,README.md,README,readme.md,readme}'
+  - '!**/node_modules/**/{test,__tests__,tests,powered-test,example,examples}'
+  - '!**/node_modules/**/*.d.ts'
+  - '!**/node_modules/**/*.map'
+  - '!**/node_modules/**/.{yarn,git}'
+  - '!**/node_modules/**/.{eslint,mocha,nyc,tslint}rc.{js,json}'
+# 只解包必要的原生模块
 asarUnpack:
   - resources/**
+  # better-sqlite3 需要解包（原生模块）
+  - '**/better-sqlite3/**/*'
+  # epub-gen 及其依赖需要解包（动态文件操作）
+  - '**/epub-gen/**/*'
+  - '**/archiver/**/*'
+  - '**/archiver-utils/**/*'
+  - '**/zip-stream/**/*'
+# 压缩配置
+compression: maximum
 win:
-  executableName: temp-book-store
+  executableName: ibook
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+        # 已移除 ia32 架构（32位系统已很少使用，可减少约 100MB）
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: ${productName}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  createStartMenuShortcut: true
+  allowToChangeInstallationDirectory: true
+  oneClick: false
+  perMachine: false
+  runAfterFinish: true
+  # 启用差分更新（减少更新包大小）
+  differentialPackage: true
 mac:
+  icon: build/icon.icns
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -26,18 +57,38 @@ mac:
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
-dmg:
-  artifactName: ${name}-${version}.${ext}
-linux:
   target:
-    - AppImage
-    - snap
-    - deb
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+dmg:
+  artifactName: ${productName}-${version}.${ext}
+  title: ${productName} ${version}
+linux:
+  icon: build/icon.png
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+    - target: snap
+      arch:
+        - x64
   maintainer: electronjs.org
   category: Utility
+  synopsis: 个人网络小说阅读管理工具
+  description: 一个本地化的小说管理工具，帮助网络小说阅读爱好者记录、管理和追踪自己的阅读历程
 appImage:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${productName}-${version}.${ext}
 npmRebuild: false
+# 忽略 electron 依赖检查（electron 应该在 dependencies 中，这是正确的）
+beforeBuild: null
+# 打包后处理钩子（移除不必要的语言包）
+afterPack: scripts/afterPack.js
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: Lickks
+  repo: iBook

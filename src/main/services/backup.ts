@@ -3,8 +3,8 @@ import { join } from 'path'
 import { readFileSync, existsSync, statSync, readdirSync } from 'fs'
 import AdmZip from 'adm-zip'
 import { databaseService } from './database'
-import fileManager from './fileManager'
-import { coverService } from './cover'
+// import fileManager from './fileManager'
+// import { coverService } from './cover'
 
 export interface BackupMetadata {
   version: string
@@ -151,7 +151,7 @@ class BackupService {
       // 如果没有提供保存路径，弹出对话框
       if (!savePath) {
         const mainWindow = BrowserWindow.getFocusedWindow()
-        const result = await dialog.showSaveDialog(mainWindow || undefined, {
+        const result = await dialog.showSaveDialog(mainWindow ?? BrowserWindow.getAllWindows()[0], {
           title: '保存备份文件',
           defaultPath: `ibook-backup-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.ibook`,
           filters: [{ name: 'iBook 备份文件', extensions: ['ibook'] }]
@@ -165,7 +165,7 @@ class BackupService {
       }
 
       const zip = new AdmZip()
-      const userDataPath = app.getPath('userData')
+      // const userDataPath = app.getPath('userData')
 
       // 2. 备份数据库
       if (onProgress) {

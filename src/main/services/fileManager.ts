@@ -44,7 +44,7 @@ class FileManagerService {
    * @param bookId 书籍ID
    * @returns 保存后的文件名
    */
-  async saveFile(filePath: string, bookId: number): Promise<string> {
+  async saveFile(filePath: string, _bookId: number): Promise<string> {
     try {
       // 读取原文件
       const fileBuffer = fs.readFileSync(filePath)

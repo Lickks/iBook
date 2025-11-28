@@ -106,6 +106,7 @@ export function setupSearchHandlers(): void {
         }
 
         const results: Array<{
+          index: number
           keyword: string
           success: boolean
           data?: any

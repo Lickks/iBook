@@ -1,3 +1,4 @@
-provider: generic
-url: https://example.com/auto-updates
-updaterCacheDirName: temp-book-store-updater
+provider: github
+owner: your-username
+repo: ibook
+updaterCacheDirName: ibook-updater

@@ -1,10 +1,10 @@
 import * as fs from 'fs'
-import * as path from 'path'
+// import * as path from 'path'
 import * as jschardet from 'jschardet'
 import * as iconv from 'iconv-lite'
 // @ts-ignore
 import EPubGen from 'epub-gen'
-import type { Chapter, BookMetadata, EpubOptions } from '../../renderer/src/types/txtToEpub'
+import type { Chapter, EpubOptions } from '../../renderer/src/types/txtToEpub'
 
 /**
  * TXT 转 EPUB 服务
@@ -73,7 +73,7 @@ class TxtToEpubService {
    */
   async generateEpub(options: EpubOptions): Promise<string> {
     try {
-      const totalChapters = options.chapters.length
+      // const totalChapters = options.chapters.length
       
       // 批量生成章节 HTML（优化性能，使用批量处理）
       const chapterContents = options.chapters.map((chapter) => {
