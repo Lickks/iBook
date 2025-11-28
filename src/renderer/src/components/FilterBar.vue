@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useBookStore } from '../stores/book'
 import { useTagStore } from '../stores/tag'
 import { SORT_BY, SORT_BY_LABEL, SORT_ORDER, SORT_ORDER_LABEL } from '../constants'
@@ -66,6 +66,25 @@ const availableTagObjects = computed(() => {
   return tagStore.tags.filter(tag => !selectedTags.value.includes(tag.id))
 })
 
+// 监听 store 变化，同步本地状态（确保清空筛选时下拉框正确更新）
+watch(
+  () => bookStore.selectedCategory,
+  (newValue) => {
+    if (newValue !== localCategory.value) {
+      localCategory.value = newValue
+    }
+  }
+)
+
+watch(
+  () => bookStore.selectedPlatform,
+  (newValue) => {
+    if (newValue !== localPlatform.value) {
+      localPlatform.value = newValue
+    }
+  }
+)
+
 onMounted(async () => {
   if (tagStore.tags.length === 0) {
     await tagStore.fetchTags()
@@ -87,6 +106,15 @@ function removeTag(tagId: number): void {
 }
 
 function clearAllFilters(): void {
+  // 取消防抖定时器，避免延迟更新
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+  // 同步更新本地状态，确保下拉框显示正确
+  localCategory.value = null
+  localPlatform.value = null
+  // 调用 store 清空所有筛选条件
   bookStore.clearAllFilters()
 }
 </script>

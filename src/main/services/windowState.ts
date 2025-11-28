@@ -119,15 +119,27 @@ function ensureWindowOnScreen(state: WindowState): WindowState {
  */
 export function createWindowWithState(iconPath?: string): BrowserWindow {
   const savedState = loadWindowState()
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize
+  
+  // 设置默认中等窗口大小（约为屏幕的 70%）
+  const defaultWidth = Math.min(1400, Math.floor(screenWidth * 0.7))
+  const defaultHeight = Math.min(900, Math.floor(screenHeight * 0.7))
+  
+  // 计算居中位置
+  const defaultX = Math.max(0, Math.floor((screenWidth - defaultWidth) / 2))
+  const defaultY = Math.max(0, Math.floor((screenHeight - defaultHeight) / 2))
+  
   const defaultState: WindowState = {
-    width: 1200,
-    height: 800,
-    x: 0,
-    y: 0,
+    width: defaultWidth,
+    height: defaultHeight,
+    x: defaultX,
+    y: defaultY,
     isMaximized: false
   }
 
-  let windowState = savedState || defaultState
+  // 如果之前保存的状态是最大化，则使用默认状态（避免首次打开就是全屏）
+  let windowState = savedState && !savedState.isMaximized ? savedState : defaultState
   windowState = ensureWindowOnScreen(windowState)
 
   const mainWindow = new BrowserWindow({

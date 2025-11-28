@@ -26,7 +26,8 @@ export function setupBackupHandlers(): void {
           theme: localStorage.getItem('theme'),
           viewMode: localStorage.getItem('viewMode'),
           sidebarCollapsed: localStorage.getItem('sidebarCollapsed'),
-          displayMode: localStorage.getItem('displayMode')
+          displayMode: localStorage.getItem('displayMode'),
+          txtToEpub_chapterRule: localStorage.getItem('txtToEpub_chapterRule')
         })
       `)
 
@@ -85,6 +86,7 @@ export function setupBackupHandlers(): void {
                 if (settings.viewMode) localStorage.setItem('viewMode', settings.viewMode);
                 if (settings.sidebarCollapsed) localStorage.setItem('sidebarCollapsed', settings.sidebarCollapsed);
                 if (settings.displayMode) localStorage.setItem('displayMode', settings.displayMode);
+                if (settings.txtToEpub_chapterRule) localStorage.setItem('txtToEpub_chapterRule', settings.txtToEpub_chapterRule);
               })();
             `)
           } catch (error) {

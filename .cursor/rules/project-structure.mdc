@@ -57,3 +57,47 @@ alwaysApply: true
 - 文件操作统一在 `fileManager` 中
 - 使用 TypeScript 严格模式
 - 遵循 Vue 3 Composition API 风格
+
+## 文件命名规范
+
+### TypeScript 文件
+- 使用 kebab-case：`book-handler.ts`、`document-service.ts`
+- Handler 文件：`*Handler.ts`
+- Service 文件：`*.ts`（在 services 目录下）
+
+### Vue 组件
+- 使用 PascalCase：`BookCard.vue`、`BookForm.vue`
+- 页面组件放在 `views/` 目录
+- 可复用组件放在 `components/` 目录
+
+### 类型定义
+- 使用 kebab-case：`book.ts`、`api.ts`
+- 统一在 `types/` 目录下
+- 通过 `types/index.ts` 统一导出
+
+## 导入路径规范
+
+- 相对路径：同级目录 `./bookHandler`，上级目录 `../services/database`
+- 避免超过 2 层相对路径
+- 优先使用命名导出：`export function createBook() {}`
+- 仅在必要时使用默认导出（如 Vue 组件）
+
+## 代码组织原则
+
+- **单一职责**：每个文件只负责一个功能模块
+- **依赖方向**：Views → Components → Stores → API → Preload → IPC → Services → Database
+- **避免循环依赖**：使用依赖注入，提取公共类型到独立文件
+
+## 新增功能时的文件创建
+
+新增业务模块（如"笔记"功能）时的文件创建顺序：
+
+1. 类型定义：`src/renderer/src/types/note.ts`
+2. 数据库服务：在 `src/main/services/database.ts` 中添加方法
+3. IPC 处理器：`src/main/ipc/noteHandler.ts`
+4. 预加载 API：在 `src/preload/index.ts` 中添加
+5. API 层：`src/renderer/src/api/note.ts`
+6. Store：`src/renderer/src/stores/note.ts`
+7. 组件：`src/renderer/src/components/NoteCard.vue`
+8. 页面：`src/renderer/src/views/NoteManagement.vue`
+9. 路由：在 `src/renderer/src/router/index.ts` 中添加

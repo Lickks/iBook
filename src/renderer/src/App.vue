@@ -17,7 +17,8 @@ import {
   Close,
   Moon,
   Sunny,
-  ArrowDown
+  ArrowDown,
+  Document
 } from '@element-plus/icons-vue'
 
 const uiStore = useUIStore()
@@ -31,6 +32,7 @@ const viewWrapperRef = ref<HTMLElement | null>(null)
 const navItems = [
   { name: 'Home', label: '书籍列表', icon: Collection, path: '/' },
   { name: 'BatchImport', label: '批量导入', icon: Box, path: '/batch-import' },
+  { name: 'TxtToEpub', label: '格式转换', icon: Document, path: '/txt-to-epub' },
   { name: 'TagManagement', label: '标签管理', icon: PriceTag, path: '/tags' },
   { name: 'Statistics', label: '统计分析', icon: DataAnalysis, path: '/statistics' },
   { name: 'Settings', label: '设置', icon: Setting, path: '/settings' }
@@ -222,7 +224,9 @@ onUnmounted(() => {
       <main ref="viewWrapperRef" class="view-wrapper">
         <RouterView v-slot="{ Component, route }">
           <Transition name="fade" mode="out-in">
-            <component :is="Component" :key="route.path" />
+            <KeepAlive :include="['Home']">
+              <component :is="Component" :key="route.path" />
+            </KeepAlive>
           </Transition>
         </RouterView>
       </main>

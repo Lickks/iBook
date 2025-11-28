@@ -1,0 +1,174 @@
+---
+globs: src/main/ipc/*.ts,src/preload/*.ts,src/renderer/src/api/*.ts
+description: Electron IPC 通信规范
+---
+
+# Electron IPC 通信规范
+
+## 架构层次
+
+```
+渲染进程 (Vue)
+    ↓ window.api.*
+预加载脚本 (preload/index.ts)
+    ↓ ipcRenderer.invoke
+主进程 IPC 处理器 (main/ipc/*.ts)
+    ↓ 调用服务层
+服务层 (main/services/*.ts)
+    ↓ 操作数据库/文件系统
+数据持久化
+```
+
+## 预加载脚本 (preload/index.ts)
+
+### API 暴露规范
+
+- 所有 API 通过 `window.api` 对象暴露
+- 按功能模块组织：`book`、`document`、`search`、`stats`、`tag` 等
+- 每个方法返回 `Promise<ApiResponse<T>>`
+
+```typescript
+const api = {
+  book: {
+    create: (input: BookInput): Promise<ApiResponse> => 
+      ipcRenderer.invoke('book:create', input),
+    getById: (id: number): Promise<ApiResponse> => 
+      ipcRenderer.invoke('book:getById', id)
+  }
+}
+
+contextBridge.exposeInMainWorld('api', api)
+```
+
+### 类型定义
+
+- 在 `preload/index.d.ts` 中定义全局类型
+- 确保渲染进程可以正确识别类型
+
+```typescript
+// preload/index.d.ts
+interface Window {
+  api: {
+    book: {
+      create: (input: BookInput) => Promise<ApiResponse>
+      getById: (id: number) => Promise<ApiResponse>
+    }
+  }
+}
+```
+
+## IPC 处理器 (main/ipc/*.ts)
+
+### 处理器注册
+
+- 每个模块使用独立的 handler 文件
+- 导出 `setup*Handlers` 函数统一注册
+- 在 `main/index.ts` 中统一调用
+
+```typescript
+// main/ipc/bookHandler.ts
+export function setupBookHandlers(): void {
+  ipcMain.handle('book:create', async (_event: IpcMainInvokeEvent, input: BookInput) => {
+    // 处理逻辑
+  })
+}
+
+// main/index.ts
+import { setupBookHandlers } from './ipc/bookHandler'
+app.whenReady().then(() => {
+  setupBookHandlers()
+})
+```
+
+### 响应格式
+
+所有 IPC 处理器统一返回格式：
+
+```typescript
+// 成功
+{ success: true, data: T }
+
+// 失败
+{ success: false, error: string }
+```
+
+### 错误处理
+
+```typescript
+ipcMain.handle('book:create', async (_event, input: BookInput) => {
+  try {
+    const book = databaseService.createBook(input)
+    return { success: true, data: book }
+  } catch (error: any) {
+    console.error('创建书籍失败:', error)
+    return {
+      success: false,
+      error: error?.message || '创建书籍失败'
+    }
+  }
+})
+```
+
+## API 层 (renderer/src/api/*.ts)
+
+### 职责
+
+- 封装 `window.api.*` 调用
+- 统一错误处理
+- 数据转换（如需要）
+- 提供类型安全的接口
+
+### 实现模式
+
+```typescript
+export async function getBookById(id: number): Promise<Book | null> {
+  const response = await window.api.book.getById(id)
+  if (response.success && response.data) {
+    return response.data
+  }
+  if (response.error === '书籍不存在') {
+    return null
+  }
+  throw new Error(response.error || '获取书籍失败')
+}
+```
+
+### 批量操作
+
+```typescript
+export async function deleteBatch(ids: number[]): Promise<number> {
+  // 参数验证
+  const bookIds = Array.isArray(ids) 
+    ? ids.filter(id => typeof id === 'number' && Number.isInteger(id) && id > 0) 
+    : []
+  if (bookIds.length === 0) {
+    throw new Error('请选择要删除的书籍')
+  }
+  
+  const response = await window.api.book.deleteBatch(bookIds)
+  if (response.success && response.data !== undefined) {
+    return response.data
+  }
+  throw new Error(response.error || '批量删除书籍失败')
+}
+```
+
+## 命名约定
+
+### IPC 通道命名
+
+- 格式：`模块:操作`
+- 示例：`book:create`、`book:update`、`document:upload`
+
+### 函数命名
+
+- IPC 处理器：`setup*Handlers`
+- API 函数：使用动词开头 `get`、`create`、`update`、`delete`
+
+## 最佳实践
+
+1. **类型安全**：所有 IPC 通信使用 TypeScript 类型
+2. **错误处理**：每一层都要处理错误
+3. **参数验证**：在 API 层进行参数验证
+4. **异步操作**：所有 IPC 调用都是异步的
+5. **数据序列化**：注意 IPC 只能传递可序列化的数据

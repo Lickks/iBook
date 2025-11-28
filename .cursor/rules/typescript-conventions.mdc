@@ -1,0 +1,108 @@
+---
+globs: *.ts,*.tsx
+description: TypeScript 代码规范和约定
+---
+
+# TypeScript 代码规范
+
+## 核心原则
+
+- 使用 TypeScript 严格模式
+- 避免使用 `any`，优先使用明确的类型或 `unknown`
+- 使用类型推断，只在必要时显式声明类型
+- 优先使用接口（interface）而非类型别名（type alias），除非需要联合类型或工具类型
+- 类型定义统一放在 `src/renderer/src/types/` 或相关模块附近
+- 使用 ES6 模块语法（import/export）
+
+## 命名规范
+
+### 文件命名
+- 使用 kebab-case：`book-handler.ts`、`document-service.ts`
+- 组件文件使用 PascalCase：`BookCard.vue`、`BookForm.vue`
+
+### 变量和函数命名
+- 使用 camelCase：`getBookById`、`createBook`
+- 布尔值使用 `is`、`has`、`should` 前缀：`isLoading`、`hasError`
+- 事件处理函数使用 `handle` 前缀：`handleSubmit`、`handleClick`
+
+### 类型和接口命名
+- 接口使用 PascalCase：`Book`、`BookInput`、`ApiResponse`
+- 类型别名使用 PascalCase：`BookStatus`、`BookSort`
+
+## 导入规范
+
+```typescript
+// 1. 外部库导入
+import { ref, computed } from 'vue'
+import { ElMessage } from 'element-plus'
+
+// 2. 内部类型导入
+import type { Book, BookInput } from '../types'
+
+// 3. 内部模块导入
+import { databaseService } from '../services/database'
+import { setupBookHandlers } from './ipc/bookHandler'
+```
+
+## 函数定义
+
+### IPC 处理器函数
+```typescript
+export function setupBookHandlers(): void {
+  ipcMain.handle('book:create', async (_event: IpcMainInvokeEvent, input: BookInput) => {
+    try {
+      const book = databaseService.createBook(input)
+      return { success: true, data: book }
+    } catch (error: any) {
+      console.error('创建书籍失败:', error)
+      return {
+        success: false,
+        error: error?.message || '创建书籍失败'
+      }
+    }
+  })
+}
+```
+
+### API 函数
+```typescript
+export async function getBookById(id: number): Promise<Book | null> {
+  const response = await window.api.book.getById(id)
+  if (response.success && response.data) {
+    return response.data
+  }
+  if (response.error === '书籍不存在') {
+    return null
+  }
+  throw new Error(response.error || '获取书籍失败')
+}
+```
+
+## 错误处理
+
+- IPC 处理器统一返回 `{ success: boolean, data?: T, error?: string }` 格式
+- API 层将 IPC 响应转换为异常或返回数据
+- 使用可选链和空值合并：`error?.message || '默认错误'`
+
+## 注释规范
+
+- 使用 JSDoc 注释描述函数用途
+- 注释集中在 "为什么"（why），而非 "是什么"（what）
+- 复杂逻辑必须添加注释说明
+
+```typescript
+/**
+ * 创建书籍
+ * @param input 书籍输入数据
+ * @returns 创建的书籍对象
+ */
+export function createBook(input: BookInput): Book {
+  // 为什么：需要生成唯一ID并设置默认值
+  const book = {
+    ...input,
+    id: generateId(),
+    createdAt: new Date()
+  }
+  return databaseService.save(book)
+}
+```

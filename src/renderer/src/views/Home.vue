@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onBeforeUnmount, onActivated, nextTick, watch, defineOptions } from 'vue'
+
+defineOptions({
+  name: 'Home'
+})
+import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { PriceTag, Collection, Minus, Delete } from '@element-plus/icons-vue'
 import { useBookStore } from '../stores/book'
@@ -17,12 +21,105 @@ import TagSelector from '../components/TagSelector.vue'
 import BookshelfDialog from '../components/BookshelfDialog.vue'
 import AddToBookshelfDialog from '../components/AddToBookshelfDialog.vue'
 
+const SCROLL_POSITION_KEY = 'home_scroll_position'
+
 const bookStore = useBookStore()
 const uiStore = useUIStore()
 const tagStore = useTagStore()
 const bookshelfStore = useBookshelfStore()
 const router = useRouter()
+const route = useRoute()
 
+// 获取滚动容器
+function getScrollContainer(): HTMLElement | null {
+  return document.querySelector('.view-wrapper') as HTMLElement | null
+}
+
+// 保存滚动位置
+function saveScrollPosition(): void {
+  const container = getScrollContainer()
+  if (container) {
+    sessionStorage.setItem(SCROLL_POSITION_KEY, String(container.scrollTop))
+  }
+}
+
+// 恢复滚动位置的重试计数
+let restoreRetryCount = 0
+
+// 恢复滚动位置
+function restoreScrollPosition(): void {
+  const savedScrollTop = sessionStorage.getItem(SCROLL_POSITION_KEY)
+  if (!savedScrollTop) {
+    restoreRetryCount = 0
+    return
+  }
+
+  const scrollTop = Number(savedScrollTop)
+  if (isNaN(scrollTop) || scrollTop < 0) {
+    restoreRetryCount = 0
+    return
+  }
+
+  const container = getScrollContainer()
+  if (!container) {
+    restoreRetryCount = 0
+    return
+  }
+
+  // 等待 DOM 更新和内容渲染完成
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      const finalContainer = getScrollContainer()
+      if (!finalContainer) {
+        restoreRetryCount = 0
+        return
+      }
+
+      // 确保内容已加载（有高度）
+      if (finalContainer.scrollHeight <= finalContainer.clientHeight) {
+        // 内容还未完全加载，延迟重试（最多重试5次）
+        if (restoreRetryCount < 5) {
+          restoreRetryCount++
+          setTimeout(() => restoreScrollPosition(), 100)
+        } else {
+          restoreRetryCount = 0
+        }
+        return
+      }
+
+      // 重置重试计数
+      restoreRetryCount = 0
+
+      // 恢复滚动位置，确保不超过最大滚动范围
+      const maxScroll = finalContainer.scrollHeight - finalContainer.clientHeight
+      const targetScroll = Math.min(scrollTop, maxScroll)
+      
+      // 直接设置滚动位置
+      finalContainer.scrollTop = targetScroll
+      
+      // 验证滚动位置是否正确设置
+      requestAnimationFrame(() => {
+        const verifyContainer = getScrollContainer()
+        if (verifyContainer && Math.abs(verifyContainer.scrollTop - targetScroll) > 10) {
+          verifyContainer.scrollTop = targetScroll
+        }
+      })
+    })
+  })
+}
+
+// 监听滚动事件，防抖保存位置
+let scrollTimer: number | null = null
+function handleScroll(): void {
+  if (scrollTimer) {
+    clearTimeout(scrollTimer)
+  }
+  scrollTimer = window.setTimeout(() => {
+    saveScrollPosition()
+  }, 150)
+}
+
+// 计算属性定义（需要在 watch 之前定义）
 const viewMode = computed(() => uiStore.viewMode)
 const hasBooks = computed(() => bookStore.books.length > 0)
 const filteredBooks = computed(() => bookStore.filteredBooks)
@@ -34,6 +131,81 @@ const selectedStatus = computed({
 const statusStats = computed(() => bookStore.statusStats)
 const hasActiveFilters = computed(() => bookStore.hasActiveFilters)
 
+// 路由离开前保存滚动位置（仅当前往详情页时）
+onBeforeRouteLeave((to) => {
+  if (to.name === 'BookDetail') {
+    saveScrollPosition()
+  } else {
+    // 前往其他页面时清除保存的位置
+    sessionStorage.removeItem(SCROLL_POSITION_KEY)
+  }
+})
+
+// 标记是否已经恢复过滚动位置，避免重复恢复
+const hasRestoredScroll = ref(false)
+
+onMounted(() => {
+  // 监听滚动事件
+  const container = getScrollContainer()
+  if (container) {
+    container.addEventListener('scroll', handleScroll, { passive: true })
+  }
+})
+
+// 当组件被激活时（keep-alive 情况下）恢复滚动位置
+onActivated(() => {
+  // 重置恢复标记
+  hasRestoredScroll.value = false
+  
+  // 检查是否从详情页返回（通过检查是否有保存的位置）
+  const savedScrollTop = sessionStorage.getItem(SCROLL_POSITION_KEY)
+  if (savedScrollTop && !hasRestoredScroll.value) {
+    hasRestoredScroll.value = true
+    // 延迟恢复，确保 DOM 已更新和路由 scrollBehavior 执行完毕
+    setTimeout(() => {
+      restoreScrollPosition()
+    }, 150)
+  }
+})
+
+// 监听路由变化，确保从详情页返回时恢复滚动位置
+// 这可以处理通过侧边栏按钮返回的情况
+watch(
+  () => route.name,
+  (toName, fromName) => {
+    // 从详情页返回到首页时，恢复滚动位置
+    if (fromName === 'BookDetail' && toName === 'Home' && !hasRestoredScroll.value) {
+      const savedScrollTop = sessionStorage.getItem(SCROLL_POSITION_KEY)
+      if (savedScrollTop) {
+        hasRestoredScroll.value = true
+        // 等待 DOM 更新和内容加载，确保在路由 scrollBehavior 之后执行
+        setTimeout(() => {
+          restoreScrollPosition()
+        }, 200)
+      }
+    }
+    
+    // 如果从其他页面进入首页，清除恢复标记
+    if (toName === 'Home' && fromName !== 'BookDetail') {
+      hasRestoredScroll.value = false
+    }
+  }
+)
+
+onBeforeUnmount(() => {
+  // 移除滚动监听
+  const container = getScrollContainer()
+  if (container) {
+    container.removeEventListener('scroll', handleScroll)
+  }
+  
+  if (scrollTimer) {
+    clearTimeout(scrollTimer)
+  }
+  
+  // 组件卸载时保存当前滚动位置
+  saveScrollPosition()
+})
 
 // 选择相关状态
 const selectedBooks = ref<number[]>([])
@@ -585,34 +757,96 @@ async function handleRemoveFromBookshelf(): Promise<void> {
 .book-collection {
   display: grid;
   gap: 20px;
+  position: relative;
 }
 
 .book-collection.grid {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  /* 一行固定显示4张卡片 */
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  /* 使用 start 对齐，让卡片从左开始排列 */
+  justify-content: start;
+}
+
+/* 响应式设计：不同屏幕尺寸下的列数 */
+@media (min-width: 1400px) {
+  .book-collection.grid {
+    /* 大屏幕仍然保持4列，但卡片可以更宽 */
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .book-collection.grid {
+    /* 中等屏幕显示3列 */
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .book-collection.grid {
+    /* 小屏幕显示2列 */
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .book-collection.grid {
+    /* 超小屏幕显示2列，间距更小 */
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
 }
 
 .book-collection.list {
   grid-template-columns: 1fr;
 }
 
-/* 列表项过渡动画 */
-.book-list-enter-active,
+/* 列表项过渡动画 - 性能优化版本 */
+.book-list-enter-active {
+  transition: opacity 0.25s ease-out, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 强制 GPU 加速 */
+  transform: translateZ(0);
+  will-change: opacity, transform;
+}
+
 .book-list-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.2s ease-in, transform 0.2s cubic-bezier(0.4, 0, 1, 1);
+  /* 强制 GPU 加速 */
+  transform: translateZ(0);
+  will-change: opacity, transform;
 }
 
 .book-list-enter-from {
   opacity: 0;
-  transform: scale(0.9) translateY(10px);
+  /* 使用 translate3d 强制 GPU 加速，避免使用 scale 减少重排 */
+  transform: translate3d(0, 12px, 0);
+}
+
+.book-list-enter-to {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+.book-list-leave-from {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 
 .book-list-leave-to {
   opacity: 0;
-  transform: scale(0.9) translateY(-10px);
+  /* 减少位移距离，加快消失速度 */
+  transform: translate3d(0, -6px, 0);
 }
 
+/* 位置移动动画 - 优化性能，使用 GPU 加速 */
 .book-list-move {
-  transition: transform 0.3s ease;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 强制 GPU 加速 */
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .loading-container {
@@ -987,4 +1221,5 @@ async function handleRemoveFromBookshelf(): Promise<void> {
   }
 }
 </style>
+
 

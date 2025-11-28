@@ -47,6 +47,7 @@ export const useDisplayModeStore = defineStore('displayMode', () => {
     isClassicMode,
     // Actions
     setDisplayMode,
-    toggleDisplayMode
+    toggleDisplayMode,
+    loadSettings
   }
 })

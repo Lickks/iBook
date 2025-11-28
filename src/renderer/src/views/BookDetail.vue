@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import { useTagStore } from '../stores/tag'
@@ -8,12 +8,26 @@ import BookForm from '../components/BookForm.vue'
 import TagSelector from '../components/TagSelector.vue'
 import { fetchYoushuDetail } from '../api/search'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { ArrowLeft } from '@element-plus/icons-vue'
 import * as tagAPI from '../api/tag'
 
 const route = useRoute()
 const router = useRouter()
 const bookStore = useBookStore()
 const tagStore = useTagStore()
+
+// 获取滚动容器并滚动到顶部
+function scrollToTop(): void {
+  // 使用 nextTick 确保 DOM 已完全渲染
+  nextTick(() => {
+    requestAnimationFrame(() => {
+      const container = document.querySelector('.view-wrapper') as HTMLElement | null
+      if (container) {
+        container.scrollTop = 0
+      }
+    })
+  })
+}
 
 const isEditing = ref(false)
 const confirmDelete = ref(false)
@@ -475,6 +489,9 @@ watch(
 )
 
 onMounted(async () => {
+  // 进入详情页时滚动到顶部
+  scrollToTop()
+  
   loadBook()
   loadDocuments()
   if (tagStore.tags.length === 0) {
@@ -493,6 +510,9 @@ watch(
 watch(
   () => bookId.value,
   () => {
+    // 书籍 ID 变化时，滚动到顶部
+    scrollToTop()
+    loadBook()
     loadDocuments()
   }
 )
@@ -501,12 +521,17 @@ watch(
 <template>
   <section class="page-container book-detail" v-if="book">
     <header class="page-header">
-      <div>
-        <p class="eyebrow">书籍详情</p>
-        <h1>{{ book.title }}</h1>
-        <p class="subtitle">
-          {{ book.author || '未知作者' }} · {{ book.platform || '未知平台' }}
-        </p>
+      <div class="header-left">
+        <button class="back-btn" type="button" @click="router.push('/')" title="返回">
+          <el-icon><ArrowLeft /></el-icon>
+        </button>
+        <div>
+          <p class="eyebrow">书籍详情</p>
+          <h1>{{ book.title }}</h1>
+          <p class="subtitle">
+            {{ book.author || '未知作者' }} · {{ book.platform || '未知平台' }}
+          </p>
+        </div>
       </div>
       <div class="header-actions">
         <button class="ghost-btn" type="button" @click="isEditing = !isEditing">
@@ -678,6 +703,37 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.back-btn:hover {
+  background: var(--color-bg-soft);
+  color: var(--color-text-primary);
+  transform: translateX(-2px);
+}
+
+.back-btn .el-icon {
+  font-size: 18px;
 }
 
 .header-actions {

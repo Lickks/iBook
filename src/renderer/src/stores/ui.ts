@@ -108,7 +108,8 @@ export const useUIStore = defineStore('ui', () => {
     setTheme,
     setViewMode,
     toggleSidebar,
-    setSidebarCollapsed
+    setSidebarCollapsed,
+    loadSettings
   }
 })
 
