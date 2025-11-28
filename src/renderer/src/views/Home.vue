@@ -585,34 +585,96 @@ async function handleRemoveFromBookshelf(): Promise<void> {
 .book-collection {
   display: grid;
   gap: 20px;
+  position: relative;
 }
 
 .book-collection.grid {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  /* 一行固定显示4张卡片 */
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  /* 使用 start 对齐，让卡片从左开始排列 */
+  justify-content: start;
+}
+
+/* 响应式设计：不同屏幕尺寸下的列数 */
+@media (min-width: 1400px) {
+  .book-collection.grid {
+    /* 大屏幕仍然保持4列，但卡片可以更宽 */
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .book-collection.grid {
+    /* 中等屏幕显示3列 */
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .book-collection.grid {
+    /* 小屏幕显示2列 */
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .book-collection.grid {
+    /* 超小屏幕显示2列，间距更小 */
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
 }
 
 .book-collection.list {
   grid-template-columns: 1fr;
 }
 
-/* 列表项过渡动画 */
-.book-list-enter-active,
+/* 列表项过渡动画 - 性能优化版本 */
+.book-list-enter-active {
+  transition: opacity 0.25s ease-out, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 强制 GPU 加速 */
+  transform: translateZ(0);
+  will-change: opacity, transform;
+}
+
 .book-list-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.2s ease-in, transform 0.2s cubic-bezier(0.4, 0, 1, 1);
+  /* 强制 GPU 加速 */
+  transform: translateZ(0);
+  will-change: opacity, transform;
 }
 
 .book-list-enter-from {
   opacity: 0;
-  transform: scale(0.9) translateY(10px);
+  /* 使用 translate3d 强制 GPU 加速，避免使用 scale 减少重排 */
+  transform: translate3d(0, 12px, 0);
+}
+
+.book-list-enter-to {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+.book-list-leave-from {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
 }
 
 .book-list-leave-to {
   opacity: 0;
-  transform: scale(0.9) translateY(-10px);
+  /* 减少位移距离，加快消失速度 */
+  transform: translate3d(0, -6px, 0);
 }
 
+/* 位置移动动画 - 优化性能，使用 GPU 加速 */
 .book-list-move {
-  transition: transform 0.3s ease;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 强制 GPU 加速 */
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .loading-container {

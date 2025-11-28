@@ -236,9 +236,6 @@ onUnmounted(() => {
 
       <div class="stats">
         <span>{{ formatWordCount(book.wordCountDisplay) }}</span>
-        <!-- 经典模式：显示评分 -->
-        <span v-if="displayModeStore.isClassicMode" class="dot">•</span>
-        <span v-if="displayModeStore.isClassicMode">评分：{{ book.personalRating ?? '暂无' }}</span>
       </div>
     </div>
   </article>
@@ -256,12 +253,31 @@ onUnmounted(() => {
   box-shadow: 0 12px 30px var(--color-card-shadow);
   transition:
     transform 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+  /* 强制 GPU 加速，优化动画性能 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+
+/* 网格模式下的卡片样式优化 */
+.book-card.grid {
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 4px 16px var(--color-card-shadow);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
 .book-card.grid {
   flex-direction: column;
   height: 100%;
+  padding: 16px 12px;
+  gap: 12px;
+  /* 移除固定高度限制，让内容自然流动 */
+  min-height: auto;
+  max-height: none;
 }
 
 .book-card.list {
@@ -271,6 +287,13 @@ onUnmounted(() => {
 .book-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 18px 45px var(--color-card-shadow);
+}
+
+/* 网格模式下的悬停效果 */
+.book-card.grid:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 32px var(--color-card-shadow);
+  border-color: var(--color-border-strong);
 }
 
 .book-card:not(.selectable) {
@@ -333,11 +356,43 @@ onUnmounted(() => {
   font-size: 32px;
   color: var(--color-accent);
   text-transform: uppercase;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* 网格视图下的封面居中 */
+/* 网格视图下的封面样式优化 */
 .book-card.grid .cover {
   margin: 0 auto;
+  width: 75%; /* 缩小封面尺寸 */
+  max-width: 160px; /* 限制最大宽度 */
+  aspect-ratio: 5 / 7; /* 保持书籍封面的标准宽高比 */
+  height: auto;
+  position: relative;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  border-radius: 14px;
+  margin-top: 32px; /* 减少留白，给状态标签留出适当空间 */
+}
+
+/* 兼容不支持 aspect-ratio 的浏览器 */
+@supports not (aspect-ratio: 5 / 7) {
+  .book-card.grid .cover {
+    height: 0;
+    padding-bottom: 140%; /* 约等于 5:7 的宽高比 */
+  }
+  
+  .book-card.grid .cover img,
+  .book-card.grid .cover span {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.book-card.grid:hover .cover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
 .cover img {
@@ -350,21 +405,29 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
+  /* 确保内容不会溢出 */
+  overflow: hidden;
 }
 
-/* 网格视图下的居中对齐 */
+/* 网格视图下的信息区域优化 */
 .book-card.grid .info {
   text-align: center;
   align-items: center;
+  gap: 8px;
+  padding-top: 0;
 }
 
 .book-card.grid .meta {
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .book-card.grid .stats {
   justify-content: center;
+  margin-top: auto;
+  padding-top: 4px;
 }
 
 .title {
@@ -373,6 +436,28 @@ onUnmounted(() => {
   color: var(--color-text-primary);
   cursor: inherit;
   text-decoration: none;
+  width: 100%;
+}
+
+/* 列表模式下标题单行显示 */
+.book-card.list .title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 网格模式下标题优化 */
+.book-card.grid .title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 0;
+  min-height: 42px; /* 确保两行标题的高度一致 */
+  text-align: center;
 }
 
 .meta {
@@ -381,6 +466,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* 网格模式下的元信息优化 */
+.book-card.grid .meta {
+  font-size: 12px;
+  line-height: 1.4;
+  min-height: 18px;
 }
 
 .dot {
@@ -397,6 +489,16 @@ onUnmounted(() => {
   -webkit-box-orient: vertical;
 }
 
+/* 网格模式下的描述优化 */
+.book-card.grid .description {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-text-tertiary);
+  margin-top: 0;
+  min-height: 32px; /* 确保两行描述的高度一致 */
+  text-align: center;
+}
+
 .stats {
   font-size: 13px;
   color: var(--color-text-tertiary);
@@ -405,11 +507,32 @@ onUnmounted(() => {
   gap: 6px;
 }
 
+/* 网格模式下的统计信息优化 */
+.book-card.grid .stats {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border);
+  width: 100%;
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+}
+
 .status {
   position: absolute;
   top: 8px;
   left: 8px;
   z-index: 5;
+}
+
+/* 网格模式下状态标签保持在左上角，但不遮挡封面 */
+.book-card.grid .status {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  /* 状态标签在卡片左上角，位置更紧凑 */
 }
 
 /* 调整状态标签样式，避免遮挡封面 */
@@ -425,6 +548,13 @@ onUnmounted(() => {
   backdrop-filter: blur(4px);
 }
 
+/* 网格模式下状态标签稍微缩小 */
+.book-card.grid .badge {
+  padding: 3px 7px;
+  font-size: 10px;
+  border-radius: 5px;
+}
+
 .status-wrapper {
   position: relative;
 }
@@ -434,6 +564,11 @@ onUnmounted(() => {
   transition: all 0.2s ease;
   position: relative;
   padding-right: 20px;
+}
+
+/* 网格模式下可点击标签的右侧内边距调整 */
+.book-card.grid .badge.clickable {
+  padding-right: 18px;
 }
 
 .badge.clickable:hover {
@@ -451,6 +586,12 @@ onUnmounted(() => {
   opacity: 0.8;
   display: flex;
   align-items: center;
+}
+
+/* 网格模式下箭头图标稍微缩小 */
+.book-card.grid .arrow {
+  font-size: 8px;
+  right: 5px;
 }
 
 .status-dropdown {
