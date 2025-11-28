@@ -19,6 +19,10 @@ lerna-debug.log*
 *.sln
 *.sw?
 
+# Claude AI local settings
+.claude/*.local.*
+.claude/settings.local.json
+
 # Node modules
 node_modules/
 dist/
