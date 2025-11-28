@@ -53,14 +53,14 @@
 ### 安装方式
 
 #### 方式一：下载安装包（推荐）
-1. 访问 [Releases 页面](https://github.com/your-repo/ibook/releases)
+1. 访问 [Releases 页面](https://github.com/Lickks/ibook/releases)
 2. 下载对应系统的安装包
 3. 运行安装程序完成安装
 
 #### 方式二：从源码构建
 ```bash
 # 克隆仓库
-git clone https://github.com/your-repo/ibook.git
+git clone https://github.com/Lickks/ibook.git
 cd ibook
 
 # 安装依赖
@@ -265,7 +265,7 @@ A: 支持 Windows 10/11、macOS 10.13+ 和主流 Linux 发行版。
 A: 当前版本仅支持本地存储和备份恢复。云同步功能正在规划中。
 
 **Q: 如何反馈问题或建议？**
-A: 请在 GitHub 上提交 [Issue](https://github.com/your-repo/ibook/issues)。
+A: 请在 GitHub 上提交 [Issue](https://github.com/Lickks/ibook/issues)。
 
 ## 自动更新
 

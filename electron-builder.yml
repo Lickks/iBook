@@ -9,13 +9,25 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  # 排除 node_modules 中的不必要文件
+  - '!**/node_modules/**/{CHANGELOG.md,README.md,README,readme.md,readme}'
+  - '!**/node_modules/**/{test,__tests__,tests,powered-test,example,examples}'
+  - '!**/node_modules/**/*.d.ts'
+  - '!**/node_modules/**/*.map'
+  - '!**/node_modules/**/.{yarn,git}'
+  - '!**/node_modules/**/.{eslint,mocha,nyc,tslint}rc.{js,json}'
+# 只解包必要的原生模块
 asarUnpack:
   - resources/**
-  # 解包 epub-gen 及其依赖，确保运行时可以访问
-  - 'node_modules/epub-gen/**/*'
-  - 'node_modules/archiver/**/*'
-  - 'node_modules/archiver-utils/**/*'
-  - 'node_modules/zip-stream/**/*'
+  # better-sqlite3 需要解包（原生模块）
+  - '**/better-sqlite3/**/*'
+  # epub-gen 及其依赖需要解包（动态文件操作）
+  - '**/epub-gen/**/*'
+  - '**/archiver/**/*'
+  - '**/archiver-utils/**/*'
+  - '**/zip-stream/**/*'
+# 压缩配置
+compression: maximum
 win:
   executableName: ibook
   icon: build/icon.ico
@@ -23,7 +35,7 @@ win:
     - target: nsis
       arch:
         - x64
-        - ia32
+        # 已移除 ia32 架构（32位系统已很少使用，可减少约 100MB）
 nsis:
   artifactName: ${productName}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -34,6 +46,8 @@ nsis:
   oneClick: false
   perMachine: false
   runAfterFinish: true
+  # 启用差分更新（减少更新包大小）
+  differentialPackage: true
 mac:
   icon: build/icon.icns
   entitlementsInherit: build/entitlements.mac.plist
@@ -72,6 +86,8 @@ appImage:
 npmRebuild: false
 # 忽略 electron 依赖检查（electron 应该在 dependencies 中，这是正确的）
 beforeBuild: null
+# 打包后处理钩子（移除不必要的语言包）
+afterPack: scripts/afterPack.js
 publish:
   provider: github
   owner: Lickks
