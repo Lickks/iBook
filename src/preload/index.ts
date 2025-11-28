@@ -190,6 +190,17 @@ const api = {
       ipcRenderer.invoke('txtToEpub:markShortChapters', chapters, maxLines),
     saveChapterEdits: (chapters: Chapter[]): Promise<ApiResponse<Chapter[]>> =>
       ipcRenderer.invoke('txtToEpub:saveChapterEdits', chapters)
+  },
+
+  // 更新操作
+  updater: {
+    check: (): Promise<ApiResponse> => ipcRenderer.invoke('updater:check'),
+    quitAndInstall: (): Promise<ApiResponse> => ipcRenderer.invoke('updater:quitAndInstall'),
+    onStatus: (callback: (status: { status: string; data?: any }) => void): (() => void) => {
+      const handler = (_event: any, status: { status: string; data?: any }) => callback(status)
+      ipcRenderer.on('updater-status', handler)
+      return () => ipcRenderer.removeListener('updater-status', handler)
+    }
   }
 }
 

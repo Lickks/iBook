@@ -1,10 +1,10 @@
 import axios from 'axios'
-import Jimp from 'jimp'
+import { Jimp } from 'jimp'
 import { app } from 'electron'
 import { join, extname } from 'path'
 import { access, mkdir } from 'fs/promises'
 import { constants } from 'fs'
-import { pathToFileURL } from 'url'
+// import { pathToFileURL } from 'url'
 import EPub from 'epub'
 
 interface DownloadOptions {
@@ -99,7 +99,7 @@ class CoverService {
   /**
    * 根据标题生成安全文件名
    */
-  private buildFileName(rawTitle?: string): string {
+  private _buildFileName(rawTitle?: string): string {
     const safeTitle = (rawTitle || 'cover')
       .replace(/[\\/:*?"<>|]/g, '')
       .replace(/\s+/g, '-')

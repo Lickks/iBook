@@ -864,7 +864,7 @@ class SpiderService {
   /**
    * 减字重试
    */
-  private async retryWithShorterKeyword(originalKeyword: string, retryCount: number): Promise<SearchResult[]> {
+  private async _retryWithShorterKeyword(originalKeyword: string, retryCount: number): Promise<SearchResult[]> {
     // 移除最后一个字符（考虑中文字符和标点）
     let shorterKeyword = originalKeyword.slice(0, -1)
     

@@ -78,6 +78,11 @@ declare global {
         onRestoreProgress: (callback: (progress: any) => void) => () => void
         onRestoreComplete: (callback: () => void) => () => void
       }
+      updater: {
+        check: () => Promise<ApiResponse>
+        quitAndInstall: () => Promise<ApiResponse>
+        onStatus: (callback: (status: { status: string; data?: any }) => void) => () => void
+      }
     }
   }
 }

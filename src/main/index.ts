@@ -44,14 +44,22 @@ import { setupTagHandlers } from './ipc/tagHandler'
 import { setupBookshelfHandlers } from './ipc/bookshelfHandler'
 import { setupBackupHandlers } from './ipc/backupHandler'
 import { setupTxtToEpubHandlers } from './ipc/txtToEpubHandler'
+import { setupUpdaterHandlers } from './ipc/updaterHandler'
 import { createWindowWithState } from './services/windowState'
+import { initUpdater } from './services/updater'
+
+let mainWindow: BrowserWindow | null = null
 
 function createWindow(): void {
   // 使用窗口状态管理服务创建窗口
-  const mainWindow = createWindowWithState(icon)
+  mainWindow = createWindowWithState(icon)
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow?.show()
+    // 初始化自动更新（仅在窗口显示后）
+    if (mainWindow) {
+      initUpdater(mainWindow)
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -74,7 +82,7 @@ function createWindow(): void {
 app.whenReady().then(() => {
   // Set app user model id for windows
   if (process.platform === 'win32') {
-    app.setAppUserModelId('com.electron')
+    app.setAppUserModelId('com.ibook.app')
   }
 
   // 初始化数据库
@@ -93,6 +101,7 @@ app.whenReady().then(() => {
   setupBookshelfHandlers()
   setupBackupHandlers()
   setupTxtToEpubHandlers()
+  setupUpdaterHandlers()
 
   createWindow()
 
