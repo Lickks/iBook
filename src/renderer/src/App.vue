@@ -32,7 +32,7 @@ const viewWrapperRef = ref<HTMLElement | null>(null)
 const navItems = [
   { name: 'Home', label: '书籍列表', icon: Collection, path: '/' },
   { name: 'BatchImport', label: '批量导入', icon: Box, path: '/batch-import' },
-  { name: 'TxtToEpub', label: 'TXT 转 EPUB', icon: Document, path: '/txt-to-epub' },
+  { name: 'TxtToEpub', label: '格式转换', icon: Document, path: '/txt-to-epub' },
   { name: 'TagManagement', label: '标签管理', icon: PriceTag, path: '/tags' },
   { name: 'Statistics', label: '统计分析', icon: DataAnalysis, path: '/statistics' },
   { name: 'Settings', label: '设置', icon: Setting, path: '/settings' }
